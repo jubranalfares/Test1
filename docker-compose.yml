@@ -1,0 +1,73 @@
+version: '3.9'
+
+services:
+  api-gateway:
+    build: ./backend/api-gateway
+    container_name: jarvis-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - AI_ENGINE_URL=http://ai-engine:8001
+      - MEMORY_ENGINE_URL=http://memory-engine:8002
+      - NOTES_SERVICE_URL=http://notes-service:8003
+      - SECRET_KEY=${SECRET_KEY:-jarvis-secret-2024}
+      - USER_PASSWORD=${USER_PASSWORD:-jarvis2024}
+    depends_on:
+      - ai-engine
+      - memory-engine
+      - notes-service
+    restart: unless-stopped
+    networks:
+      - jarvis-network
+
+  ai-engine:
+    build: ./backend/ai-engine
+    container_name: jarvis-ai
+    ports:
+      - "8001:8001"
+    environment:
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.1:8b}
+      - WHISPER_MODEL=${WHISPER_MODEL:-base}
+    volumes:
+      - ./models:/app/models
+      - whisper-cache:/root/.cache/huggingface
+    restart: unless-stopped
+    networks:
+      - jarvis-network
+
+  memory-engine:
+    build: ./backend/memory-engine
+    container_name: jarvis-memory
+    ports:
+      - "8002:8002"
+    volumes:
+      - memory-data:/app/data
+      - chroma-data:/app/chroma
+    environment:
+      - AI_ENGINE_URL=http://ai-engine:8001
+    restart: unless-stopped
+    networks:
+      - jarvis-network
+
+  notes-service:
+    build: ./backend/notes-service
+    container_name: jarvis-notes
+    ports:
+      - "8003:8003"
+    volumes:
+      - notes-data:/app/data
+    restart: unless-stopped
+    networks:
+      - jarvis-network
+
+volumes:
+  whisper-cache:
+  memory-data:
+  chroma-data:
+  notes-data:
+
+networks:
+  jarvis-network:
+    driver: bridge
