@@ -27,6 +27,25 @@ load_dotenv()
 AI_ENGINE_URL = os.getenv("AI_ENGINE_URL", "http://localhost:8001")
 DB_PATH = os.getenv("DB_PATH", "/app/data/memory.db")
 CHROMA_PATH = os.getenv("CHROMA_PATH", "/app/chroma")
+TIMEZONE = os.getenv("TIMEZONE", "Europe/Berlin")
+
+# German weekday names for nice briefings
+_WEEKDAYS_DE = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+
+
+def local_now() -> datetime:
+    """Current time in the user's timezone (default Europe/Berlin), not UTC."""
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo(TIMEZONE))
+    except Exception:
+        return datetime.now()
+
+
+def local_datetime_str() -> str:
+    """Human-friendly German date/time string in the user's timezone."""
+    n = local_now()
+    return f"{_WEEKDAYS_DE[n.weekday()]}, {n.strftime('%d.%m.%Y %H:%M')}"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("memory-engine")
@@ -291,23 +310,16 @@ async def get_context(request: dict):
         )
         rules = [dict(row) for row in cur.fetchall()]
 
-    # Check if morning (6-10 AM)
-    now = datetime.now()
+    # Check if morning (6-10 AM) in the user's local timezone
+    now = local_now()
     is_morning = 6 <= now.hour < 10
-
-    # Include briefing if morning
-    briefing = ""
-    if is_morning:
-        cached = get_briefing_cache()
-        if cached:
-            briefing = cached
 
     return {
         "facts": facts,
         "rules": rules,
         "recent_memories": recent_memories,
         "is_morning": is_morning,
-        "briefing": briefing,
+        "local_time": local_datetime_str(),
     }
 
 
@@ -474,30 +486,29 @@ async def get_briefing():
         cur.execute("SELECT trigger, action, description FROM behavior_rules WHERE active=1")
         rules = [dict(row) for row in cur.fetchall()]
 
-    now = datetime.now()
-    date_str = now.strftime("%A, %B %d, %Y")
+    date_str = local_datetime_str()
 
-    facts_text = "\n".join([f"- {f['key']}: {f['value']}" for f in facts]) if facts else "No facts stored yet."
-    rules_text = "\n".join([f"- {r['trigger']}: {r['description'] or r['action']}" for r in rules]) if rules else "No special rules."
+    facts_text = "\n".join([f"- {f['key']}: {f['value']}" for f in facts]) if facts else "Noch keine Fakten gespeichert."
+    rules_text = "\n".join([f"- {r['description'] or r['action']}" for r in rules]) if rules else "Keine besonderen Anweisungen."
 
-    system_prompt = f"""You are Jarvis. Generate a concise, motivating morning briefing for the user.
-Today is {date_str}.
+    system_prompt = f"""Du bist Jarvis, der persönliche KI-Assistent des Nutzers. Erstelle ein kurzes, motivierendes Morgen-Briefing.
+Heute ist {date_str}.
 
-Known facts about the user:
+Was du über den Nutzer weißt:
 {facts_text}
 
-Active behavior rules:
+Dauerhafte Anweisungen des Nutzers:
 {rules_text}
 
-Write a 3-5 sentence morning briefing. Be warm, personal, and motivating. Reference what you know about the user."""
+Schreibe ein Briefing aus 3-5 Sätzen. Sei warmherzig, persönlich und motivierend. Beziehe dich auf das, was du über den Nutzer weißt. WICHTIG: Antworte ausschließlich auf Deutsch."""
 
     briefing_text = await call_ai_chat(
-        "Generate my morning briefing",
+        "Erstelle mein Morgen-Briefing",
         system_prompt=system_prompt,
     )
 
     if not briefing_text:
-        briefing_text = f"Good morning! Today is {date_str}. Have a great and productive day!"
+        briefing_text = f"Guten Morgen! Heute ist {date_str}. Lass uns einen großartigen, produktiven Tag machen!"
 
     set_briefing_cache(briefing_text)
 
@@ -506,6 +517,74 @@ Write a 3-5 sentence morning briefing. Be warm, personal, and motivating. Refere
         "cached": False,
         "generated_at": datetime.utcnow().isoformat(),
     }
+
+
+@app.get("/opening")
+async def get_opening():
+    """
+    Generate a proactive opening message for when the user opens the app.
+    Time-aware (morning/day/evening/night), follows behavior rules, in German.
+    Returns: {message: str, local_time: str}
+    """
+    with db_cursor() as cur:
+        cur.execute("SELECT key, value FROM facts ORDER BY timestamp DESC LIMIT 10")
+        facts = [dict(row) for row in cur.fetchall()]
+
+    with db_cursor() as cur:
+        cur.execute("SELECT trigger, action, description FROM behavior_rules WHERE active=1")
+        rules = [dict(row) for row in cur.fetchall()]
+
+    # Most recent conversation for continuity
+    with db_cursor() as cur:
+        cur.execute(
+            "SELECT user_message, assistant_message FROM conversations ORDER BY id DESC LIMIT 3"
+        )
+        recent = [dict(row) for row in cur.fetchall()]
+
+    n = local_now()
+    hour = n.hour
+    if 5 <= hour < 11:
+        tageszeit = "Morgen"
+    elif 11 <= hour < 17:
+        tageszeit = "Tag/Mittag"
+    elif 17 <= hour < 22:
+        tageszeit = "Abend"
+    else:
+        tageszeit = "Nacht"
+
+    facts_text = "\n".join([f"- {f['key']}: {f['value']}" for f in facts]) if facts else "Noch nichts bekannt."
+    rules_text = "\n".join([f"- {r['description'] or r['action']}" for r in rules]) if rules else "Keine besonderen Anweisungen."
+    recent_text = ""
+    if recent:
+        recent_text = "Letzte Gespräche:\n" + "\n".join(
+            [f"  Nutzer: {r['user_message'][:120]}" for r in reversed(recent)]
+        )
+
+    system_prompt = f"""Du bist Jarvis, der persönliche KI-Assistent des Nutzers. Der Nutzer hat gerade die App geöffnet.
+Begrüße ihn von dir aus mit EINER kurzen, natürlichen Eröffnungsnachricht (1-2 Sätze), passend zur Tageszeit ({tageszeit}, {local_datetime_str()}).
+
+Was du über den Nutzer weißt:
+{facts_text}
+
+Dauerhafte Anweisungen des Nutzers (diese IMMER befolgen):
+{rules_text}
+
+{recent_text}
+
+Regeln:
+- Antworte ausschließlich auf Deutsch.
+- Sei warmherzig und kurz, kein langes Gerede.
+- Befolge die dauerhaften Anweisungen des Nutzers, falls vorhanden (z.B. wenn er morgens nach dem Schlaf gefragt werden möchte).
+- Wenn keine besondere Anweisung gilt, begrüße passend zur Tageszeit und frage offen, was ansteht.
+- Erfinde keine Termine oder Fakten, die du nicht kennst."""
+
+    message = await call_ai_chat("Öffne das Gespräch", system_prompt=system_prompt)
+
+    if not message:
+        greet = {"Morgen": "Guten Morgen", "Tag/Mittag": "Hallo", "Abend": "Guten Abend", "Nacht": "Hallo"}[tageszeit]
+        message = f"{greet}! Was steht an? Ich bin bereit. 🚀"
+
+    return {"message": message, "local_time": local_datetime_str()}
 
 
 @app.post("/summarize")

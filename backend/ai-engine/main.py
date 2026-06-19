@@ -27,7 +27,9 @@ load_dotenv()
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
+ASSISTANT_LANGUAGE = os.getenv("ASSISTANT_LANGUAGE", "de")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ai-engine")
@@ -91,18 +93,19 @@ def build_system_prompt(context: dict, custom_prompt: Optional[str] = None) -> s
     facts = context.get("facts", [])
     rules = context.get("rules", [])
     recent_memories = context.get("recent_memories", [])
-    is_morning = context.get("is_morning", False)
-    briefing = context.get("briefing", "")
+    local_time = context.get("local_time", "")
 
     facts_text = ""
     if facts:
         facts_lines = [f"  - {f.get('key', '')}: {f.get('value', '')}" for f in facts[:20]]
-        facts_text = "Known facts about the user:\n" + "\n".join(facts_lines)
+        facts_text = "Was du über den Nutzer weißt:\n" + "\n".join(facts_lines)
 
     rules_text = ""
     if rules:
-        rules_lines = [f"  - [{r.get('trigger', '')}] → {r.get('description', r.get('action', ''))}" for r in rules]
-        rules_text = "Behavior rules to follow:\n" + "\n".join(rules_lines)
+        rules_lines = [f"  - {r.get('description', '') or r.get('action', '')}" for r in rules]
+        rules_text = (
+            "Dauerhafte Anweisungen des Nutzers, die du IMMER befolgst:\n" + "\n".join(rules_lines)
+        )
 
     memories_text = ""
     if recent_memories:
@@ -111,34 +114,29 @@ def build_system_prompt(context: dict, custom_prompt: Optional[str] = None) -> s
             user_msg = m.get("user_message", m.get("document", ""))[:200]
             asst_msg = m.get("assistant_message", "")[:200]
             if user_msg:
-                mem_lines.append(f"  User: {user_msg}")
+                mem_lines.append(f"  Nutzer: {user_msg}")
             if asst_msg:
                 mem_lines.append(f"  Jarvis: {asst_msg}")
         if mem_lines:
-            memories_text = "Recent conversation snippets:\n" + "\n".join(mem_lines)
+            memories_text = "Relevante frühere Gespräche:\n" + "\n".join(mem_lines)
 
-    morning_text = ""
-    if is_morning:
-        morning_text = (
-            "It is morning time. Greet the user warmly, ask how they slept if not already done today.\n"
-        )
-        if briefing:
-            morning_text += f"Today's briefing: {briefing}\n"
+    if not local_time:
+        local_time = datetime.now().strftime("%A, %d.%m.%Y %H:%M")
 
-    now = datetime.now()
-    date_str = now.strftime("%A, %B %d, %Y %H:%M")
+    system = f"""Du bist Jarvis, der persönliche KI-Assistent des Nutzers — wie ein hochintelligenter, motivierender Partner, der sich an alles erinnert und dem Nutzer hilft, seine Ziele zu erreichen.
 
-    system = f"""You are Jarvis, an intelligent personal AI assistant. You are like a brilliant, motivating partner who remembers everything about the user and helps them achieve their goals.
+Aktuelles Datum und Uhrzeit: {local_time}
 
-Current date and time: {date_str}
+WICHTIGSTE REGEL: Antworte AUSSCHLIESSLICH auf Deutsch. Niemals auf Englisch, egal in welcher Sprache die Frage gestellt wird.
 
-Your personality:
-- Intelligent, warm, and proactive
-- You remember past conversations and reference them naturally
-- You motivate and encourage without being sycophantic
-- You are direct and concise unless detail is requested
-- You speak in the user's language naturally
-- You help with notes, goals, finance tracking, planning, and anything personal
+Deine Persönlichkeit und dein Verhalten:
+- Intelligent, warmherzig und proaktiv, aber nie aufdringlich
+- Du gehst direkt auf das ein, was der Nutzer gerade schreibt — du beginnst NICHT jede Nachricht mit einer Begrüßung
+- Begrüße nur dann, wenn es das erste Gespräch ist oder der Nutzer dich begrüßt
+- Frage NICHT von dir aus nach Schlaf, Träumen o.ä., außer der Nutzer hat dich per dauerhafter Anweisung (siehe unten) ausdrücklich darum gebeten
+- Du motivierst und ermutigst ehrlich, ohne zu schmeicheln
+- Du antwortest natürlich und prägnant; ausführlich nur, wenn nötig oder gewünscht
+- Du hilfst bei Notizen, Zielen, Finanzen, Planung und allem Persönlichen
 
 {facts_text}
 
@@ -146,9 +144,7 @@ Your personality:
 
 {memories_text}
 
-{morning_text}
-
-Always be helpful, honest, and personalized. If you recall relevant past context, reference it naturally."""
+Sei immer hilfreich, ehrlich und persönlich. Wenn du relevanten früheren Kontext kennst, beziehe dich natürlich darauf. Denk daran: immer auf Deutsch."""
 
     # Clean up extra blank lines
     lines = [line for line in system.split("\n")]
@@ -198,7 +194,7 @@ def chat_groq(messages: list) -> Optional[str]:
         return None
     try:
         completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model=GROQ_MODEL,
             messages=messages,
             temperature=0.7,
             max_tokens=1024,
@@ -236,24 +232,37 @@ async def chat(request: dict):
     response_text = None
     model_used = "unknown"
 
-    # Try Ollama first
-    try:
-        response_text = await chat_ollama(messages)
-        if response_text:
-            model_used = f"ollama/{OLLAMA_MODEL}"
-    except Exception as e:
-        logger.warning(f"Ollama attempt failed: {e}")
+    # Prefer Groq when a key is configured (fast + smart 70B), else use local Ollama.
+    # Whichever is primary, the other serves as automatic fallback.
+    prefer_groq = bool(GROQ_API_KEY)
 
-    # Fallback to Groq
-    if not response_text:
+    if prefer_groq:
         response_text = chat_groq(messages)
         if response_text:
-            model_used = "groq/llama-3.1-8b-instant"
+            model_used = f"groq/{GROQ_MODEL}"
+        if not response_text:
+            try:
+                response_text = await chat_ollama(messages)
+                if response_text:
+                    model_used = f"ollama/{OLLAMA_MODEL}"
+            except Exception as e:
+                logger.warning(f"Ollama fallback failed: {e}")
+    else:
+        try:
+            response_text = await chat_ollama(messages)
+            if response_text:
+                model_used = f"ollama/{OLLAMA_MODEL}"
+        except Exception as e:
+            logger.warning(f"Ollama attempt failed: {e}")
+        if not response_text:
+            response_text = chat_groq(messages)
+            if response_text:
+                model_used = f"groq/{GROQ_MODEL}"
 
     if not response_text:
         response_text = (
-            "I'm sorry, I'm having trouble connecting to my AI backend right now. "
-            "Please ensure Ollama is running or configure a GROQ_API_KEY."
+            "Entschuldige, ich kann meine KI gerade nicht erreichen. "
+            "Bitte stelle sicher, dass Ollama läuft oder ein GROQ_API_KEY konfiguriert ist."
         )
         model_used = "fallback/static"
 

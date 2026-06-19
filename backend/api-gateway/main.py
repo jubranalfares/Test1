@@ -292,6 +292,17 @@ async def memory_briefing(current_user: str = Depends(get_current_user)):
             raise HTTPException(status_code=502, detail=str(e))
 
 
+@app.get("/memory/opening")
+async def memory_opening(current_user: str = Depends(get_current_user)):
+    """Proactive opening message for when the app is opened."""
+    async with get_client() as client:
+        try:
+            resp = await client.get(f"{MEMORY_ENGINE_URL}/opening")
+            return resp.json()
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
+
 # ---------------------------------------------------------------------------
 # Health check
 # ---------------------------------------------------------------------------
