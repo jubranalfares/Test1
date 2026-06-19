@@ -656,7 +656,7 @@ class _BarChartWidget extends StatelessWidget {
                 ],
                 barTouchData: BarTouchData(
                   touchTooltipData: BarTouchTooltipData(
-                    getTooltipColor: (_) => AppColors.surface,
+                    tooltipBgColor: AppColors.surface,
                     getTooltipItem: (group, groupIndex, rod, rodIndex) {
                       return BarTooltipItem(
                         '€${rod.toY.toStringAsFixed(0)}',

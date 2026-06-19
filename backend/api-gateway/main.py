@@ -109,6 +109,20 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     return {"access_token": token, "token_type": "bearer"}
 
 
+@app.post("/auth/login")
+async def auth_login(request: Request):
+    """Flutter-compatible login endpoint — accepts JSON {password: ...}."""
+    body = await request.json()
+    password = body.get("password", "")
+    if password != USER_PASSWORD:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid password",
+        )
+    token = create_access_token({"sub": JARVIS_USERNAME})
+    return {"access_token": token, "token_type": "bearer"}
+
+
 # ---------------------------------------------------------------------------
 # Chat endpoint
 # ---------------------------------------------------------------------------
