@@ -36,21 +36,21 @@ extension TransactionCategoryExtension on TransactionCategory {
   String get label {
     switch (this) {
       case TransactionCategory.food:
-        return 'Food';
+        return 'Essen';
       case TransactionCategory.transport:
         return 'Transport';
       case TransactionCategory.shopping:
-        return 'Shopping';
+        return 'Einkaufen';
       case TransactionCategory.health:
-        return 'Health';
+        return 'Gesundheit';
       case TransactionCategory.entertainment:
-        return 'Entertainment';
+        return 'Unterhaltung';
       case TransactionCategory.salary:
-        return 'Salary';
+        return 'Gehalt';
       case TransactionCategory.freelance:
         return 'Freelance';
       case TransactionCategory.other:
-        return 'Other';
+        return 'Sonstiges';
     }
   }
 }

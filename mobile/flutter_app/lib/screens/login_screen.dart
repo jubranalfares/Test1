@@ -15,7 +15,7 @@ class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _passwordController = TextEditingController();
-  final _urlController = TextEditingController(text: 'http://localhost:8000');
+  final _urlController = TextEditingController(text: 'http://localhost:8080');
   final _passwordFocusNode = FocusNode();
 
   bool _obscurePassword = true;
@@ -150,7 +150,7 @@ class _LoginScreenState extends State<LoginScreen>
                         const SizedBox(height: 8),
 
                         const Text(
-                          'Your Personal AI Assistant',
+                          'Dein persönlicher KI-Assistent',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: AppColors.textSecondary,
@@ -172,7 +172,7 @@ class _LoginScreenState extends State<LoginScreen>
                             fontSize: 16,
                           ),
                           decoration: InputDecoration(
-                            hintText: 'Enter password',
+                            hintText: 'Passwort eingeben',
                             prefixIcon: const Icon(
                               Icons.lock_outline_rounded,
                               color: AppColors.textSecondary,
@@ -188,8 +188,9 @@ class _LoginScreenState extends State<LoginScreen>
                                   () => _obscurePassword = !_obscurePassword),
                             ),
                           ),
-                          validator: (v) =>
-                              (v == null || v.isEmpty) ? 'Password required' : null,
+                          validator: (v) => (v == null || v.isEmpty)
+                              ? 'Passwort erforderlich'
+                              : null,
                         )
                             .animate(delay: 400.ms)
                             .fade(duration: 500.ms)
@@ -238,7 +239,7 @@ class _LoginScreenState extends State<LoginScreen>
                         _GradientButton(
                           onTap: auth.isLoading ? null : _login,
                           isLoading: auth.isLoading,
-                          label: 'Connect',
+                          label: 'Verbinden',
                         )
                             .animate(delay: 500.ms)
                             .fade(duration: 500.ms)
@@ -254,7 +255,7 @@ class _LoginScreenState extends State<LoginScreen>
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               const Text(
-                                'Advanced Settings',
+                                'Erweiterte Einstellungen',
                                 style: TextStyle(
                                   color: AppColors.textSecondary,
                                   fontSize: 13,
@@ -284,7 +285,7 @@ class _LoginScreenState extends State<LoginScreen>
                                         CrossAxisAlignment.start,
                                     children: [
                                       const Text(
-                                        'Server URL',
+                                        'Server-Adresse',
                                         style: TextStyle(
                                           color: AppColors.textSecondary,
                                           fontSize: 12,
@@ -299,7 +300,7 @@ class _LoginScreenState extends State<LoginScreen>
                                           fontSize: 14,
                                         ),
                                         decoration: const InputDecoration(
-                                          hintText: 'http://localhost:8000',
+                                          hintText: 'http://localhost:8080',
                                           prefixIcon: Icon(
                                             Icons.dns_outlined,
                                             color: AppColors.textSecondary,
@@ -307,7 +308,7 @@ class _LoginScreenState extends State<LoginScreen>
                                         ),
                                         validator: (v) => (v == null ||
                                                 v.isEmpty)
-                                            ? 'Server URL required'
+                                            ? 'Server-Adresse erforderlich'
                                             : null,
                                       ),
                                     ],

@@ -28,17 +28,17 @@ class _MainScreenState extends State<MainScreen> {
     _NavItem(
       icon: Icons.note_outlined,
       activeIcon: Icons.note_rounded,
-      label: 'Notes',
+      label: 'Notizen',
     ),
     _NavItem(
       icon: Icons.flag_outlined,
       activeIcon: Icons.flag_rounded,
-      label: 'Goals',
+      label: 'Ziele',
     ),
     _NavItem(
       icon: Icons.account_balance_wallet_outlined,
       activeIcon: Icons.account_balance_wallet_rounded,
-      label: 'Finance',
+      label: 'Finanzen',
     ),
     _NavItem(
       icon: Icons.fitness_center_outlined,
@@ -249,27 +249,22 @@ class _VoiceFABState extends State<_VoiceFAB>
       final transcript =
           await widget.voiceService.stopRecordingAndTranscribe();
       if (transcript != null && transcript.isNotEmpty && mounted) {
+        // sendMessage already speaks the Jarvis reply (if TTS enabled).
         await widget.chatProvider.sendMessage(transcript);
         // If not on chat screen, show a snackbar
         if (widget.currentIndex != 0 && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Jarvis: ${widget.chatProvider.messages.isNotEmpty && !widget.chatProvider.messages.last.isUser ? widget.chatProvider.messages.last.content.substring(0, widget.chatProvider.messages.last.content.length.clamp(0, 80)) : "Processing..."}'),
+              content: Text('Jarvis: ${widget.chatProvider.messages.isNotEmpty && !widget.chatProvider.messages.last.isUser ? widget.chatProvider.messages.last.content.substring(0, widget.chatProvider.messages.last.content.length.clamp(0, 80)) : "Wird verarbeitet..."}'),
               duration: const Duration(seconds: 4),
               action: SnackBarAction(
-                label: 'View',
+                label: 'Ansehen',
                 onPressed: () {
                   // Navigate to chat - parent will handle
                 },
               ),
             ),
           );
-        }
-        // Speak the response
-        if (widget.chatProvider.messages.isNotEmpty &&
-            !widget.chatProvider.messages.last.isUser) {
-          await widget.voiceService
-              .speak(widget.chatProvider.messages.last.content);
         }
       }
     } else {

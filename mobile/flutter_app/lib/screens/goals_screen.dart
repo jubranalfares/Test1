@@ -25,8 +25,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
     _goals = [
       Goal(
         id: '1',
-        title: 'Run 5km daily',
-        description: 'Build cardiovascular endurance',
+        title: 'Täglich 5 km laufen',
+        description: 'Ausdauer aufbauen',
         progress: 0.72,
         deadline: DateTime.now().add(const Duration(days: 14)),
         streak: 7,
@@ -35,8 +35,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
       ),
       Goal(
         id: '2',
-        title: 'Read 2 books per month',
-        description: 'Expand knowledge and vocabulary',
+        title: '2 Bücher pro Monat lesen',
+        description: 'Wissen und Wortschatz erweitern',
         progress: 0.45,
         deadline: DateTime.now().add(const Duration(days: 8)),
         streak: 3,
@@ -45,8 +45,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
       ),
       Goal(
         id: '3',
-        title: 'Save \$500 this month',
-        description: 'Emergency fund contribution',
+        title: 'Diesen Monat 500 € sparen',
+        description: 'Beitrag zum Notgroschen',
         progress: 0.25,
         deadline: DateTime.now().add(const Duration(days: 5)),
         streak: 1,
@@ -55,8 +55,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
       ),
       Goal(
         id: '4',
-        title: 'Learn Flutter',
-        description: 'Complete mobile dev course',
+        title: 'Flutter lernen',
+        description: 'Mobile-Dev-Kurs abschließen',
         progress: 1.0,
         streak: 30,
         status: GoalStatus.completed,
@@ -65,8 +65,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
       ),
       Goal(
         id: '5',
-        title: 'Meditate daily',
-        description: '10 minutes each morning',
+        title: 'Täglich meditieren',
+        description: '10 Minuten jeden Morgen',
         progress: 1.0,
         streak: 14,
         status: GoalStatus.completed,
@@ -107,7 +107,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'New Goal',
+              'Neues Ziel',
               style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 20,
@@ -120,8 +120,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
               autofocus: true,
               style: const TextStyle(color: AppColors.textPrimary),
               decoration: const InputDecoration(
-                hintText: 'Goal title',
-                labelText: 'What do you want to achieve?',
+                hintText: 'Titel des Ziels',
+                labelText: 'Was möchtest du erreichen?',
               ),
             ),
             const SizedBox(height: 16),
@@ -129,8 +129,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
               controller: descCtrl,
               style: const TextStyle(color: AppColors.textPrimary),
               decoration: const InputDecoration(
-                hintText: 'Description (optional)',
-                labelText: 'Description',
+                hintText: 'Beschreibung (optional)',
+                labelText: 'Beschreibung',
               ),
               maxLines: 2,
             ),
@@ -156,7 +156,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                     Navigator.pop(ctx);
                   }
                 },
-                child: const Text('Add Goal'),
+                child: const Text('Ziel hinzufügen'),
               ),
             ),
           ],
@@ -169,7 +169,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Goals')),
+      appBar: AppBar(title: const Text('Ziele')),
       floatingActionButton: FloatingActionButton(
         onPressed: _addGoal,
         backgroundColor: AppColors.primary,
@@ -191,7 +191,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
 
             // Active goals
             const Text(
-              'ACTIVE GOALS',
+              'AKTIVE ZIELE',
               style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 11,
@@ -211,7 +211,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                 ),
                 child: const Center(
                   child: Text(
-                    'No active goals. Add one!',
+                    'Keine aktiven Ziele. Füge eins hinzu!',
                     style: TextStyle(color: AppColors.textSecondary),
                   ),
                 ),
@@ -255,7 +255,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
               child: Row(
                 children: [
                   const Text(
-                    'COMPLETED GOALS',
+                    'ABGESCHLOSSENE ZIELE',
                     style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 11,
@@ -336,7 +336,7 @@ class _StatsRow extends StatelessWidget {
         Expanded(
           child: _StatItem(
             icon: Icons.flag_rounded,
-            label: 'Active',
+            label: 'Aktiv',
             value: '$activeCount',
             color: AppColors.primary,
           ),
@@ -345,7 +345,7 @@ class _StatsRow extends StatelessWidget {
         Expanded(
           child: _StatItem(
             icon: Icons.check_circle_rounded,
-            label: 'Completed',
+            label: 'Abgeschlossen',
             value: '$completedCount',
             color: AppColors.success,
           ),
@@ -354,8 +354,8 @@ class _StatsRow extends StatelessWidget {
         Expanded(
           child: _StatItem(
             icon: Icons.local_fire_department_rounded,
-            label: 'Best Streak',
-            value: '$maxStreak days',
+            label: 'Beste Streak',
+            value: '$maxStreak Tage',
             color: AppColors.warning,
           ),
         ),
@@ -438,13 +438,13 @@ class _GoalCard extends StatelessWidget {
   String get _statusLabel {
     switch (goal.status) {
       case GoalStatus.onTrack:
-        return 'On Track';
+        return 'Im Plan';
       case GoalStatus.atRisk:
-        return 'At Risk';
+        return 'Gefährdet';
       case GoalStatus.behind:
-        return 'Behind';
+        return 'Im Rückstand';
       case GoalStatus.completed:
-        return 'Completed';
+        return 'Abgeschlossen';
     }
   }
 
@@ -520,7 +520,7 @@ class _GoalCard extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          'Progress',
+                          'Fortschritt',
                           style: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 12,
@@ -574,7 +574,7 @@ class _GoalCard extends StatelessWidget {
                     color: AppColors.textSecondary, size: 14),
                 const SizedBox(width: 4),
                 Text(
-                  DateFormat('MMM d').format(goal.deadline!),
+                  DateFormat('dd.MM.').format(goal.deadline!),
                   style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
@@ -586,7 +586,7 @@ class _GoalCard extends StatelessWidget {
                   color: AppColors.warning, size: 14),
               const SizedBox(width: 4),
               Text(
-                '${goal.streak} day streak',
+                '${goal.streak} Tage Streak',
                 style: const TextStyle(
                   color: AppColors.warning,
                   fontSize: 12,
@@ -652,7 +652,7 @@ class _CompletedGoalCard extends StatelessWidget {
                         color: AppColors.warning, size: 12),
                     const SizedBox(width: 3),
                     Text(
-                      '${goal.streak} day streak',
+                      '${goal.streak} Tage Streak',
                       style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 11,

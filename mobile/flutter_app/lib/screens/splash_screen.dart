@@ -128,7 +128,7 @@ class _SplashScreenState extends State<SplashScreen>
 
                   // Subtitle
                   const Text(
-                    'YOUR PERSONAL AI',
+                    'DEIN PERSÖNLICHER KI-ASSISTENT',
                     style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 13,

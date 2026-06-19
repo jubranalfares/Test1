@@ -24,11 +24,11 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   bool _hasChanges = false;
 
   static const List<Map<String, dynamic>> _colorOptions = [
-    {'color': '#1A1A28', 'label': 'Default'},
-    {'color': '#1A1528', 'label': 'Purple'},
-    {'color': '#12281A', 'label': 'Green'},
-    {'color': '#281A1A', 'label': 'Red'},
-    {'color': '#1A2228', 'label': 'Blue'},
+    {'color': '#1A1A28', 'label': 'Standard'},
+    {'color': '#1A1528', 'label': 'Lila'},
+    {'color': '#12281A', 'label': 'Grün'},
+    {'color': '#281A1A', 'label': 'Rot'},
+    {'color': '#1A2228', 'label': 'Blau'},
     {'color': '#28221A', 'label': 'Orange'},
   ];
 
@@ -90,7 +90,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save: $e')),
+          SnackBar(content: Text('Speichern fehlgeschlagen: $e')),
         );
       }
     } finally {
@@ -104,17 +104,17 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Note'),
-        content: const Text('This note will be permanently deleted.'),
+        title: const Text('Notiz löschen'),
+        content: const Text('Diese Notiz wird dauerhaft gelöscht.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: const Text('Abbrechen'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text(
-              'Delete',
+              'Löschen',
               style: TextStyle(color: AppColors.error),
             ),
           ),
@@ -130,7 +130,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to delete: $e')),
+            SnackBar(content: Text('Löschen fehlgeschlagen: $e')),
           );
         }
       }
@@ -142,12 +142,12 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Add Tag'),
+        title: const Text('Tag hinzufügen'),
         content: TextField(
           controller: ctrl,
           autofocus: true,
           style: const TextStyle(color: AppColors.textPrimary),
-          decoration: const InputDecoration(hintText: 'Enter tag name'),
+          decoration: const InputDecoration(hintText: 'Tag-Name eingeben'),
           onSubmitted: (v) {
             if (v.trim().isNotEmpty) {
               setState(() => _tags.add(v.trim()));
@@ -159,7 +159,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: const Text('Abbrechen'),
           ),
           TextButton(
             onPressed: () {
@@ -169,7 +169,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
               }
               Navigator.pop(ctx);
             },
-            child: const Text('Add'),
+            child: const Text('Hinzufügen'),
           ),
         ],
       ),
@@ -209,14 +209,14 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                 _isPinned = !_isPinned;
                 _onChanged();
               }),
-              tooltip: _isPinned ? 'Unpin' : 'Pin',
+              tooltip: _isPinned ? 'Lösen' : 'Anheften',
             ),
             if (widget.note != null)
               IconButton(
                 icon: const Icon(Icons.delete_outline_rounded,
                     color: AppColors.error),
                 onPressed: _delete,
-                tooltip: 'Delete',
+                tooltip: 'Löschen',
               ),
             if (_isSaving)
               const Padding(
@@ -231,7 +231,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
               IconButton(
                 icon: const Icon(Icons.check_rounded, color: AppColors.success),
                 onPressed: _save,
-                tooltip: 'Save',
+                tooltip: 'Speichern',
               ),
           ],
         ),
@@ -249,7 +249,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   fontWeight: FontWeight.w700,
                 ),
                 decoration: const InputDecoration(
-                  hintText: 'Title',
+                  hintText: 'Titel',
                   hintStyle: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 24,
@@ -276,7 +276,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   height: 1.6,
                 ),
                 decoration: const InputDecoration(
-                  hintText: 'Start writing...',
+                  hintText: 'Schreib los…',
                   hintStyle: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 16,
@@ -295,7 +295,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
 
               // Tags section
               const Text(
-                'TAGS',
+                'TAGS', // gleiches Wort im Deutschen
                 style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 11,
@@ -327,7 +327,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                     ),
                   ),
                   ActionChip(
-                    label: const Text('+ Add Tag'),
+                    label: const Text('+ Tag hinzufügen'),
                     backgroundColor: AppColors.surface,
                     labelStyle: const TextStyle(
                       color: AppColors.textSecondary,
@@ -343,7 +343,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
 
               // Color picker
               const Text(
-                'COLOR',
+                'FARBE',
                 style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 11,

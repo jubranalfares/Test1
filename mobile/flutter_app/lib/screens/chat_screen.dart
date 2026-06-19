@@ -24,7 +24,12 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChatProvider>().loadMorningBriefing();
+      final chat = context.read<ChatProvider>();
+      chat.loadMorningBriefing();
+      // Jarvis greets the user by himself (with voice) the moment the
+      // chat screen opens. Guarded internally to run once per session and
+      // only when there are no messages yet.
+      chat.loadOpening();
     });
   }
 
@@ -110,7 +115,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                 ),
                 Text(
-                  'Always ready',
+                  'Immer bereit',
                   style: TextStyle(
                     color: AppColors.success,
                     fontSize: 11,
@@ -122,12 +127,32 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         ),
         actions: [
+          Builder(
+            builder: (context) {
+              final voice = context.watch<VoiceService>();
+              return IconButton(
+                icon: Icon(
+                  voice.ttsEnabled
+                      ? Icons.volume_up_rounded
+                      : Icons.volume_off_rounded,
+                  color: voice.ttsEnabled
+                      ? AppColors.primary
+                      : AppColors.textSecondary,
+                ),
+                onPressed: () =>
+                    context.read<VoiceService>().toggleTts(),
+                tooltip: voice.ttsEnabled
+                    ? 'Stimme ausschalten'
+                    : 'Stimme einschalten',
+              );
+            },
+          ),
           if (chat.messages.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.delete_outline_rounded,
                   color: AppColors.textSecondary),
               onPressed: () => _confirmClear(context, chat),
-              tooltip: 'Clear chat',
+              tooltip: 'Chat löschen',
             ),
           const SizedBox(width: 8),
         ],
@@ -220,12 +245,13 @@ class _ChatScreenState extends State<ChatScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Clear Chat'),
-        content: const Text('This will clear all messages. Continue?'),
+        title: const Text('Chat löschen'),
+        content: const Text(
+            'Dadurch werden alle Nachrichten gelöscht. Fortfahren?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: const Text('Abbrechen'),
           ),
           TextButton(
             onPressed: () {
@@ -233,7 +259,7 @@ class _ChatScreenState extends State<ChatScreen> {
               chat.clearMessages();
             },
             child: const Text(
-              'Clear',
+              'Löschen',
               style: TextStyle(color: AppColors.error),
             ),
           ),
@@ -286,7 +312,7 @@ class _EmptyState extends StatelessWidget {
               ),
           const SizedBox(height: 24),
           const Text(
-            'Hey, I\'m Jarvis',
+            'Hey, ich bin Jarvis',
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 22,
@@ -295,7 +321,7 @@ class _EmptyState extends StatelessWidget {
           ).animate().fade(delay: 300.ms, duration: 500.ms),
           const SizedBox(height: 8),
           const Text(
-            'Say something or type a message',
+            'Sag etwas oder schreib eine Nachricht',
             style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 15,
@@ -311,10 +337,10 @@ class _EmptyState extends StatelessWidget {
 
 class _QuickSuggestions extends StatelessWidget {
   final List<String> suggestions = const [
-    'What can you do?',
-    'Tell me the weather',
-    'Set a reminder',
-    'Quick note',
+    'Was steht an?',
+    'Neue Notiz',
+    'Motivier mich',
+    'Wie ist das Wetter?',
   ];
 
   @override
@@ -378,7 +404,8 @@ class _MorningBriefingCardState extends State<_MorningBriefingCard> {
   Widget build(BuildContext context) {
     final greeting = widget.briefing['greeting']?.toString() ??
         widget.briefing['summary']?.toString() ??
-        'Good morning! Here\'s your briefing.';
+        widget.briefing['briefing']?.toString() ??
+        'Guten Morgen! Hier ist dein Briefing.';
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -405,7 +432,7 @@ class _MorningBriefingCardState extends State<_MorningBriefingCard> {
               size: 20,
             ),
             title: const Text(
-              'Morning Briefing',
+              'Morgen-Briefing',
               style: TextStyle(
                 color: AppColors.textPrimary,
                 fontWeight: FontWeight.w700,
@@ -515,8 +542,8 @@ class _InputArea extends StatelessWidget {
               ),
               decoration: InputDecoration(
                 hintText: voiceService.isRecording
-                    ? 'Listening...'
-                    : 'Ask Jarvis anything...',
+                    ? 'Höre zu...'
+                    : 'Nachricht an Jarvis…',
                 hintStyle: TextStyle(
                   color: voiceService.isRecording
                       ? AppColors.primary

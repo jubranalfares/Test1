@@ -47,7 +47,7 @@ class _NotesScreenState extends State<NotesScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load notes: $e')),
+          SnackBar(content: Text('Notizen konnten nicht geladen werden: $e')),
         );
       }
     }
@@ -93,16 +93,16 @@ class _NotesScreenState extends State<NotesScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Note'),
-        content: Text('Delete "${note.title}"?'),
+        title: const Text('Notiz löschen'),
+        content: Text('„${note.title}" löschen?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: const Text('Abbrechen'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete',
+            child: const Text('Löschen',
                 style: TextStyle(color: AppColors.error)),
           ),
         ],
@@ -115,8 +115,8 @@ class _NotesScreenState extends State<NotesScreen> {
         _loadNotes();
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Löschen fehlgeschlagen: $e')));
         }
       }
     }
@@ -132,7 +132,7 @@ class _NotesScreenState extends State<NotesScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Notes'),
+        title: const Text('Notizen'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
@@ -157,7 +157,7 @@ class _NotesScreenState extends State<NotesScreen> {
               },
               style: const TextStyle(color: AppColors.textPrimary),
               decoration: InputDecoration(
-                hintText: 'Search notes...',
+                hintText: 'Notizen durchsuchen…',
                 prefixIcon: const Icon(Icons.search_rounded,
                     color: AppColors.textSecondary),
                 suffixIcon: _searchQuery.isNotEmpty
@@ -202,7 +202,7 @@ class _NotesScreenState extends State<NotesScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
                   _TagChip(
-                    label: 'All',
+                    label: 'Alle',
                     isSelected: _selectedTag == null,
                     onTap: () {
                       _selectedTag = null;
@@ -391,7 +391,7 @@ class _NoteCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            note.title.isEmpty ? 'Untitled' : note.title,
+                            note.title.isEmpty ? 'Ohne Titel' : note.title,
                             style: const TextStyle(
                               color: AppColors.textPrimary,
                               fontSize: 15,
@@ -495,7 +495,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           const Text(
-            'No notes yet',
+            'Noch keine Notizen',
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 20,
@@ -504,7 +504,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Tell Jarvis to create one, or tap +',
+            'Bitte Jarvis, eine zu erstellen, oder tippe auf +',
             style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 14,
@@ -514,7 +514,7 @@ class _EmptyState extends StatelessWidget {
           ElevatedButton.icon(
             onPressed: onAdd,
             icon: const Icon(Icons.add_rounded),
-            label: const Text('Create Note'),
+            label: const Text('Notiz erstellen'),
           ),
         ],
       ).animate().fade(duration: 400.ms),

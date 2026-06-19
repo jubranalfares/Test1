@@ -16,11 +16,11 @@ class _SportScreenState extends State<SportScreen> {
   final int _weeklyGoal = 5;
 
   static const List<String> _motivationQuotes = [
-    '"Push yourself, because no one else is going to do it for you."',
-    '"The only bad workout is the one that didn\'t happen."',
-    '"Your body can stand almost anything. It\'s your mind you have to convince."',
-    '"Success starts with self-discipline."',
-    '"Don\'t stop when you\'re tired. Stop when you\'re done."',
+    '„Streng dich an, denn niemand sonst wird es für dich tun."',
+    '„Das einzige schlechte Training ist das, das nicht stattgefunden hat."',
+    '„Dein Körper hält fast alles aus. Du musst nur deinen Kopf überzeugen."',
+    '„Erfolg beginnt mit Selbstdisziplin."',
+    '„Hör nicht auf, wenn du müde bist. Hör auf, wenn du fertig bist."',
   ];
 
   String get _todayQuote {
@@ -148,7 +148,7 @@ class _SportScreenState extends State<SportScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Log Workout',
+                'Training eintragen',
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 20,
@@ -206,7 +206,7 @@ class _SportScreenState extends State<SportScreen> {
                       keyboardType: TextInputType.number,
                       style: const TextStyle(color: AppColors.textPrimary),
                       decoration: const InputDecoration(
-                        labelText: 'Duration (min)',
+                        labelText: 'Dauer (Min.)',
                         hintText: '30',
                       ),
                     ),
@@ -218,7 +218,7 @@ class _SportScreenState extends State<SportScreen> {
                       keyboardType: TextInputType.number,
                       style: const TextStyle(color: AppColors.textPrimary),
                       decoration: const InputDecoration(
-                        labelText: 'Calories (opt)',
+                        labelText: 'Kalorien (opt.)',
                         hintText: '250',
                       ),
                     ),
@@ -252,7 +252,7 @@ class _SportScreenState extends State<SportScreen> {
                     });
                     Navigator.pop(ctx);
                   },
-                  child: const Text('Log Workout'),
+                  child: const Text('Training eintragen'),
                 ),
               ),
             ],
@@ -275,7 +275,7 @@ class _SportScreenState extends State<SportScreen> {
         backgroundColor: AppColors.primary,
         icon: const Icon(Icons.add_rounded, color: Colors.white),
         label: const Text(
-          'Log Workout',
+          'Training eintragen',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
       ),
@@ -361,7 +361,7 @@ class _SportScreenState extends State<SportScreen> {
                               ),
                             ),
                             Text(
-                              'of $_weeklyGoal',
+                              'von $_weeklyGoal',
                               style: const TextStyle(
                                 color: AppColors.textSecondary,
                                 fontSize: 11,
@@ -381,7 +381,7 @@ class _SportScreenState extends State<SportScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'This Week',
+                          'Diese Woche',
                           style: TextStyle(
                             color: AppColors.textPrimary,
                             fontSize: 16,
@@ -391,20 +391,20 @@ class _SportScreenState extends State<SportScreen> {
                         const SizedBox(height: 12),
                         _SmallStat(
                           icon: Icons.fitness_center_rounded,
-                          label: 'Total this month',
-                          value: '$_thisMonthTotal workouts',
+                          label: 'Gesamt diesen Monat',
+                          value: '$_thisMonthTotal Einheiten',
                         ),
                         const SizedBox(height: 8),
                         _SmallStat(
                           icon: Icons.timer_rounded,
-                          label: 'Active minutes',
-                          value: '$_totalMinutesThisMonth min',
+                          label: 'Minuten gesamt',
+                          value: '$_totalMinutesThisMonth Min.',
                         ),
                         const SizedBox(height: 8),
                         _SmallStat(
                           icon: Icons.local_fire_department_rounded,
-                          label: 'Current streak',
-                          value: '$_currentStreak days',
+                          label: 'Aktuelle Streak',
+                          value: '$_currentStreak Tage',
                           valueColor: AppColors.warning,
                         ),
                       ],
@@ -428,7 +428,7 @@ class _SportScreenState extends State<SportScreen> {
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
               child: Text(
-                'RECENT WORKOUTS',
+                'LETZTE EINHEITEN',
                 style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 11,
@@ -445,7 +445,7 @@ class _SportScreenState extends State<SportScreen> {
                 padding: EdgeInsets.all(24),
                 child: Center(
                   child: Text(
-                    'No workouts logged yet',
+                    'Noch keine Einheiten eingetragen',
                     style: TextStyle(color: AppColors.textSecondary),
                   ),
                 ),
@@ -519,7 +519,7 @@ class _WeekCalendar extends StatelessWidget {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final weekStart = now.subtract(Duration(days: now.weekday - 1));
-    final days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    final days = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -532,7 +532,7 @@ class _WeekCalendar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'This Week',
+            'Diese Woche',
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 14,
@@ -625,6 +625,16 @@ class _WorkoutItem extends StatelessWidget {
 
   const _WorkoutItem({required this.workout});
 
+  static const List<String> _weekdayShort = [
+    'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'
+  ];
+
+  String _formatDate(DateTime date) {
+    // weekday: 1 = Monday ... 7 = Sunday
+    final wd = _weekdayShort[(date.weekday - 1).clamp(0, 6)];
+    return '$wd, ${DateFormat('dd.MM.').format(date)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -666,7 +676,7 @@ class _WorkoutItem extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  DateFormat('EEE, MMM d').format(workout.date),
+                  _formatDate(workout.date),
                   style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
@@ -684,7 +694,7 @@ class _WorkoutItem extends StatelessWidget {
                       color: AppColors.textSecondary, size: 13),
                   const SizedBox(width: 3),
                   Text(
-                    '${workout.durationMinutes}m',
+                    '${workout.durationMinutes} Min.',
                     style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 13,
@@ -701,7 +711,7 @@ class _WorkoutItem extends StatelessWidget {
                         color: AppColors.warning, size: 13),
                     const SizedBox(width: 3),
                     Text(
-                      '${workout.calories} cal',
+                      '${workout.calories} kcal',
                       style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 12,

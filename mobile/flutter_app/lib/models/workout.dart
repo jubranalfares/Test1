@@ -34,21 +34,21 @@ extension WorkoutTypeExtension on WorkoutType {
   String get label {
     switch (this) {
       case WorkoutType.running:
-        return 'Running';
+        return 'Laufen';
       case WorkoutType.cycling:
-        return 'Cycling';
+        return 'Radfahren';
       case WorkoutType.swimming:
-        return 'Swimming';
+        return 'Schwimmen';
       case WorkoutType.weightlifting:
-        return 'Weight Lifting';
+        return 'Krafttraining';
       case WorkoutType.yoga:
         return 'Yoga';
       case WorkoutType.hiit:
         return 'HIIT';
       case WorkoutType.walking:
-        return 'Walking';
+        return 'Gehen';
       case WorkoutType.other:
-        return 'Other';
+        return 'Sonstiges';
     }
   }
 }

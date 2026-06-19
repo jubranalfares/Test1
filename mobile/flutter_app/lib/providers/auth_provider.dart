@@ -54,7 +54,7 @@ class AuthProvider extends ChangeNotifier {
         _serverUrl = url;
         _errorMessage = null;
       } else {
-        _errorMessage = 'Invalid password or server error';
+        _errorMessage = 'Falsches Passwort oder Serverfehler';
         _isLoggedIn = false;
       }
 
@@ -62,7 +62,7 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return success;
     } catch (e) {
-      _errorMessage = 'Connection failed: ${e.toString()}';
+      _errorMessage = 'Verbindung fehlgeschlagen: ${e.toString()}';
       _isLoggedIn = false;
       _isLoading = false;
       notifyListeners();

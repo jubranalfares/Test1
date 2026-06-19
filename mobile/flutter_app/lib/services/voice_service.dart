@@ -1,20 +1,26 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
 
 class VoiceService extends ChangeNotifier {
   final ApiService _apiService;
   final AudioRecorder _recorder = AudioRecorder();
   final AudioPlayer _player = AudioPlayer();
+  final FlutterTts _flutterTts = FlutterTts();
+
+  static const _ttsEnabledKey = 'tts_enabled';
 
   bool _isRecording = false;
   bool _isPlaying = false;
   bool _isProcessing = false;
+  bool _ttsEnabled = true;
+  bool _ttsConfigured = false;
   String? _currentRecordingPath;
 
   VoiceService(this._apiService) {
@@ -22,11 +28,64 @@ class VoiceService extends ChangeNotifier {
       _isPlaying = state == PlayerState.playing;
       notifyListeners();
     });
+    _initTts();
+    _loadTtsPreference();
   }
 
   bool get isRecording => _isRecording;
   bool get isPlaying => _isPlaying;
   bool get isProcessing => _isProcessing;
+  bool get ttsEnabled => _ttsEnabled;
+
+  Future<void> _initTts() async {
+    try {
+      await _flutterTts.setLanguage('de-DE');
+      await _flutterTts.setSpeechRate(0.5);
+      await _flutterTts.setPitch(1.0);
+      await _flutterTts.setVolume(1.0);
+      _flutterTts.setStartHandler(() {
+        _isPlaying = true;
+        notifyListeners();
+      });
+      _flutterTts.setCompletionHandler(() {
+        _isPlaying = false;
+        notifyListeners();
+      });
+      _flutterTts.setCancelHandler(() {
+        _isPlaying = false;
+        notifyListeners();
+      });
+      _ttsConfigured = true;
+    } catch (e) {
+      debugPrint('TTS init error: $e');
+    }
+  }
+
+  Future<void> _loadTtsPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _ttsEnabled = prefs.getBool(_ttsEnabledKey) ?? true;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Load TTS preference error: $e');
+    }
+  }
+
+  Future<void> setTtsEnabled(bool enabled) async {
+    _ttsEnabled = enabled;
+    notifyListeners();
+    if (!enabled) {
+      await stopSpeaking();
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_ttsEnabledKey, enabled);
+    } catch (e) {
+      debugPrint('Save TTS preference error: $e');
+    }
+  }
+
+  Future<void> toggleTts() => setTtsEnabled(!_ttsEnabled);
 
   Future<bool> requestPermissions() async {
     if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
@@ -113,48 +172,50 @@ class VoiceService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> speak(String text) async {
+  /// Speaks [text] aloud using the on-device German TTS engine.
+  /// Stops any current speech first. Does nothing if TTS is muted.
+  Future<void> speakText(String text) async {
+    if (!_ttsEnabled) return;
+    final clean = text.trim();
+    if (clean.isEmpty) return;
+
     try {
-      if (_isPlaying) {
-        await _player.stop();
+      if (!_ttsConfigured) {
+        await _initTts();
       }
-
-      final audioBytes = await _apiService.textToSpeech(text);
-      if (audioBytes == null || audioBytes.isEmpty) return;
-
-      // Write to temp file
-      final dir = await getTemporaryDirectory();
-      final file = File(
-          '${dir.path}/jarvis_tts_${DateTime.now().millisecondsSinceEpoch}.mp3');
-      await file.writeAsBytes(audioBytes);
-
-      await _player.play(DeviceFileSource(file.path));
-
-      // Clean up after playback
-      _player.onPlayerComplete.listen((_) async {
-        try {
-          if (await file.exists()) await file.delete();
-        } catch (_) {}
-      });
+      // Stop anything currently playing/speaking
+      await stopSpeaking();
+      await _flutterTts.setLanguage('de-DE');
+      await _flutterTts.speak(clean);
     } catch (e) {
-      debugPrint('Speak error: $e');
+      debugPrint('speakText error: $e');
     }
   }
 
+  /// Primary speak path for Jarvis text — uses on-device TTS (reliable
+  /// across web, iOS and Android) instead of the unreliable backend TTS.
+  Future<void> speak(String text) => speakText(text);
+
   Future<void> stopSpeaking() async {
     try {
-      await _player.stop();
-      _isPlaying = false;
-      notifyListeners();
+      await _flutterTts.stop();
     } catch (e) {
-      debugPrint('Stop speaking error: $e');
+      debugPrint('Stop TTS error: $e');
     }
+    try {
+      await _player.stop();
+    } catch (e) {
+      debugPrint('Stop player error: $e');
+    }
+    _isPlaying = false;
+    notifyListeners();
   }
 
   Future<void> dispose() async {
     try {
       await _recorder.dispose();
       await _player.dispose();
+      await _flutterTts.stop();
     } catch (_) {}
   }
 }

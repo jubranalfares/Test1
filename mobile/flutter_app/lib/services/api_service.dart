@@ -23,9 +23,12 @@ class ApiService extends ChangeNotifier {
   bool get hasToken => _token.isNotEmpty;
   bool get isConfigured => _baseUrl.isNotEmpty;
 
+  // Default gateway URL (user-editable). Port 8080 because 8000 is taken.
+  static const _defaultBaseUrl = 'http://localhost:8080';
+
   Future<void> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    _baseUrl = prefs.getString(_baseUrlKey) ?? '';
+    _baseUrl = prefs.getString(_baseUrlKey) ?? _defaultBaseUrl;
     _token = await _storage.read(key: _tokenKey) ?? '';
     notifyListeners();
   }
@@ -256,6 +259,24 @@ class ApiService extends ChangeNotifier {
     } catch (e) {
       debugPrint('Memory facts error: $e');
       return {};
+    }
+  }
+
+  // --- Opening (proactive greeting) ---
+  Future<String?> getOpening() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$_baseUrl/memory/opening'), headers: _headers)
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['message']?.toString();
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Opening error: $e');
+      return null;
     }
   }
 

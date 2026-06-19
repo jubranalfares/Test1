@@ -50,7 +50,7 @@ class _FinanceScreenState extends State<FinanceScreen>
     _transactions = [
       Transaction(
         id: '1',
-        description: 'Monthly Salary',
+        description: 'Monatsgehalt',
         amount: 4500,
         type: TransactionType.income,
         category: TransactionCategory.salary,
@@ -58,7 +58,7 @@ class _FinanceScreenState extends State<FinanceScreen>
       ),
       Transaction(
         id: '2',
-        description: 'Grocery Shopping',
+        description: 'Lebensmitteleinkauf',
         amount: 87.50,
         type: TransactionType.expense,
         category: TransactionCategory.food,
@@ -66,7 +66,7 @@ class _FinanceScreenState extends State<FinanceScreen>
       ),
       Transaction(
         id: '3',
-        description: 'Uber Ride',
+        description: 'Uber-Fahrt',
         amount: 24.00,
         type: TransactionType.expense,
         category: TransactionCategory.transport,
@@ -74,7 +74,7 @@ class _FinanceScreenState extends State<FinanceScreen>
       ),
       Transaction(
         id: '4',
-        description: 'Freelance Project',
+        description: 'Freelance-Projekt',
         amount: 850,
         type: TransactionType.income,
         category: TransactionCategory.freelance,
@@ -82,7 +82,7 @@ class _FinanceScreenState extends State<FinanceScreen>
       ),
       Transaction(
         id: '5',
-        description: 'Netflix Subscription',
+        description: 'Netflix-Abo',
         amount: 15.99,
         type: TransactionType.expense,
         category: TransactionCategory.entertainment,
@@ -90,7 +90,7 @@ class _FinanceScreenState extends State<FinanceScreen>
       ),
       Transaction(
         id: '6',
-        description: 'Amazon Shopping',
+        description: 'Amazon-Einkauf',
         amount: 142.30,
         type: TransactionType.expense,
         category: TransactionCategory.shopping,
@@ -98,7 +98,7 @@ class _FinanceScreenState extends State<FinanceScreen>
       ),
       Transaction(
         id: '7',
-        description: 'Pharmacy',
+        description: 'Apotheke',
         amount: 33.00,
         type: TransactionType.expense,
         category: TransactionCategory.health,
@@ -106,7 +106,7 @@ class _FinanceScreenState extends State<FinanceScreen>
       ),
       Transaction(
         id: '8',
-        description: 'Coffee Shop',
+        description: 'Café',
         amount: 18.50,
         type: TransactionType.expense,
         category: TransactionCategory.food,
@@ -166,7 +166,7 @@ class _FinanceScreenState extends State<FinanceScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Add Transaction',
+                'Transaktion hinzufügen',
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 20,
@@ -180,7 +180,7 @@ class _FinanceScreenState extends State<FinanceScreen>
                 children: [
                   Expanded(
                     child: _TypeToggle(
-                      label: 'Expense',
+                      label: 'Ausgabe',
                       isSelected:
                           selectedType == TransactionType.expense,
                       color: AppColors.error,
@@ -191,7 +191,7 @@ class _FinanceScreenState extends State<FinanceScreen>
                   const SizedBox(width: 12),
                   Expanded(
                     child: _TypeToggle(
-                      label: 'Income',
+                      label: 'Einnahme',
                       isSelected:
                           selectedType == TransactionType.income,
                       color: AppColors.success,
@@ -209,8 +209,8 @@ class _FinanceScreenState extends State<FinanceScreen>
                 autofocus: true,
                 style: const TextStyle(color: AppColors.textPrimary),
                 decoration: const InputDecoration(
-                  hintText: 'Description',
-                  labelText: 'Description',
+                  hintText: 'Beschreibung',
+                  labelText: 'Beschreibung',
                 ),
               ),
 
@@ -222,9 +222,9 @@ class _FinanceScreenState extends State<FinanceScreen>
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
-                  hintText: '0.00',
-                  labelText: 'Amount',
-                  prefixText: '\$ ',
+                  hintText: '0,00',
+                  labelText: 'Betrag',
+                  prefixText: '€ ',
                 ),
               ),
 
@@ -235,7 +235,7 @@ class _FinanceScreenState extends State<FinanceScreen>
                 value: selectedCategory,
                 dropdownColor: AppColors.surface,
                 style: const TextStyle(color: AppColors.textPrimary),
-                decoration: const InputDecoration(labelText: 'Category'),
+                decoration: const InputDecoration(labelText: 'Kategorie'),
                 items: TransactionCategory.values.map((cat) {
                   return DropdownMenuItem(
                     value: cat,
@@ -276,7 +276,7 @@ class _FinanceScreenState extends State<FinanceScreen>
                       Navigator.pop(ctx);
                     }
                   },
-                  child: const Text('Add'),
+                  child: const Text('Hinzufügen'),
                 ),
               ),
             ],
@@ -290,7 +290,7 @@ class _FinanceScreenState extends State<FinanceScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Finance')),
+      appBar: AppBar(title: const Text('Finanzen')),
       floatingActionButton: FloatingActionButton(
         onPressed: _addTransaction,
         backgroundColor: AppColors.primary,
@@ -341,9 +341,9 @@ class _FinanceScreenState extends State<FinanceScreen>
                   indicatorSize: TabBarIndicatorSize.tab,
                   dividerColor: Colors.transparent,
                   tabs: const [
-                    Tab(text: 'All'),
-                    Tab(text: 'Income'),
-                    Tab(text: 'Expenses'),
+                    Tab(text: 'Alle'),
+                    Tab(text: 'Einnahmen'),
+                    Tab(text: 'Ausgaben'),
                   ],
                 ),
               ),
@@ -382,7 +382,7 @@ class _BalanceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPositive = balance >= 0;
-    final formatter = NumberFormat.currency(symbol: '\$');
+    final formatter = NumberFormat.currency(locale: 'de_DE', symbol: '€');
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -406,7 +406,7 @@ class _BalanceCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'THIS MONTH',
+            'DIESEN MONAT',
             style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 11,
@@ -441,7 +441,9 @@ class _BalanceCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            isPositive ? 'Net positive this month' : 'Spending more than earning',
+            isPositive
+                ? 'Diesen Monat im Plus'
+                : 'Mehr ausgegeben als eingenommen',
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 13,
@@ -452,7 +454,7 @@ class _BalanceCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _MiniStat(
-                  label: 'Income',
+                  label: 'Einnahmen',
                   value: formatter.format(income),
                   color: AppColors.success,
                   icon: Icons.arrow_downward_rounded,
@@ -461,7 +463,7 @@ class _BalanceCard extends StatelessWidget {
               const SizedBox(width: 16),
               Expanded(
                 child: _MiniStat(
-                  label: 'Expenses',
+                  label: 'Ausgaben',
                   value: formatter.format(expenses),
                   color: AppColors.error,
                   icon: Icons.arrow_upward_rounded,
@@ -550,7 +552,7 @@ class _BarChartWidget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Income vs Expenses',
+            'Einnahmen vs. Ausgaben',
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 14,
@@ -581,7 +583,7 @@ class _BarChartWidget extends StatelessWidget {
                       showTitles: true,
                       reservedSize: 50,
                       getTitlesWidget: (v, meta) => Text(
-                        '\$${(v / 1000).toStringAsFixed(1)}k',
+                        '€${(v / 1000).toStringAsFixed(1)}k',
                         style: const TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 10,
@@ -597,7 +599,7 @@ class _BarChartWidget extends StatelessWidget {
                     sideTitles: SideTitles(
                       showTitles: true,
                       getTitlesWidget: (v, meta) {
-                        final labels = ['Income', 'Expenses'];
+                        final labels = ['Einnahmen', 'Ausgaben'];
                         final idx = v.toInt();
                         if (idx >= 0 && idx < labels.length) {
                           return Padding(
@@ -657,7 +659,7 @@ class _BarChartWidget extends StatelessWidget {
                     getTooltipColor: (_) => AppColors.surface,
                     getTooltipItem: (group, groupIndex, rod, rodIndex) {
                       return BarTooltipItem(
-                        '\$${rod.toY.toStringAsFixed(0)}',
+                        '€${rod.toY.toStringAsFixed(0)}',
                         const TextStyle(
                           color: AppColors.textPrimary,
                           fontWeight: FontWeight.w600,
@@ -685,7 +687,7 @@ class _TransactionItem extends StatelessWidget {
     final isIncome = transaction.type == TransactionType.income;
     final color = isIncome ? AppColors.success : AppColors.error;
     final sign = isIncome ? '+' : '-';
-    final formatter = NumberFormat.currency(symbol: '\$');
+    final formatter = NumberFormat.currency(locale: 'de_DE', symbol: '€');
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
@@ -730,7 +732,7 @@ class _TransactionItem extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '${transaction.category.label} • ${DateFormat('MMM d').format(transaction.date)}',
+                  '${transaction.category.label} • ${DateFormat('dd.MM.').format(transaction.date)}',
                   style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,

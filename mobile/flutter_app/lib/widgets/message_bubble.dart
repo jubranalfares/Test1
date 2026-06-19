@@ -106,7 +106,7 @@ class _UserBubble extends StatelessWidget {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Copied to clipboard'),
+        content: Text('In die Zwischenablage kopiert'),
         duration: Duration(seconds: 1),
       ),
     );
@@ -270,7 +270,7 @@ class _JarvisBubble extends StatelessWidget {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Copied to clipboard'),
+        content: Text('In die Zwischenablage kopiert'),
         duration: Duration(seconds: 1),
       ),
     );

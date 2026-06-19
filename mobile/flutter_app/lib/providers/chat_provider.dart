@@ -12,6 +12,7 @@ class ChatProvider extends ChangeNotifier {
   String? _errorMessage;
   Map<String, dynamic>? _morningBriefing;
   bool _briefingLoaded = false;
+  bool _openingLoaded = false;
 
   ChatProvider(this._apiService, this._voiceService);
 
@@ -20,6 +21,36 @@ class ChatProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   Map<String, dynamic>? get morningBriefing => _morningBriefing;
   bool get briefingLoaded => _briefingLoaded;
+
+  /// Proactively greets the user with voice when the chat opens.
+  /// Only runs once per session and only if there are no messages yet.
+  Future<void> loadOpening() async {
+    if (_openingLoaded) return;
+    _openingLoaded = true;
+
+    if (_messages.isNotEmpty) return;
+
+    final message = await _apiService.getOpening();
+    if (message == null || message.trim().isEmpty) return;
+
+    // Still guard against a race where a message arrived meanwhile.
+    if (_messages.isNotEmpty) return;
+
+    final jarvisMessage = Message(
+      id: '${DateTime.now().millisecondsSinceEpoch}_opening',
+      content: message.trim(),
+      isUser: false,
+      timestamp: DateTime.now(),
+    );
+
+    _messages.add(jarvisMessage);
+    notifyListeners();
+
+    // Speak the proactive greeting aloud (respects the mute toggle).
+    if (_voiceService.ttsEnabled) {
+      await _voiceService.speakText(jarvisMessage.content);
+    }
+  }
 
   Future<void> loadMorningBriefing() async {
     if (_briefingLoaded) return;
@@ -57,7 +88,7 @@ class ChatProvider extends ChangeNotifier {
       final replyText = response['response']?.toString() ??
           response['message']?.toString() ??
           response['text']?.toString() ??
-          'I received your message.';
+          'Ich habe deine Nachricht erhalten.';
 
       final jarvisMessage = Message(
         id: '${DateTime.now().millisecondsSinceEpoch}_j',
@@ -69,6 +100,11 @@ class ChatProvider extends ChangeNotifier {
       _messages.add(jarvisMessage);
       _isLoading = false;
       notifyListeners();
+
+      // Speak Jarvis's response aloud (respects the mute toggle).
+      if (_voiceService.ttsEnabled) {
+        await _voiceService.speakText(jarvisMessage.content);
+      }
     } catch (e) {
       _isLoading = false;
       _errorMessage = e.toString();
@@ -85,11 +121,8 @@ class ChatProvider extends ChangeNotifier {
 
       final transcript = await _voiceService.stopRecordingAndTranscribe();
       if (transcript != null && transcript.isNotEmpty) {
+        // sendMessage already speaks the Jarvis reply (if TTS enabled).
         await sendMessage(transcript);
-        // Speak the last Jarvis response
-        if (_messages.isNotEmpty && !_messages.last.isUser) {
-          await _voiceService.speak(_messages.last.content);
-        }
       } else {
         _isLoading = false;
         notifyListeners();
