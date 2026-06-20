@@ -135,8 +135,13 @@ Deine Persönlichkeit und dein Verhalten:
 - Begrüße nur dann, wenn es das erste Gespräch ist oder der Nutzer dich begrüßt
 - Frage NICHT von dir aus nach Schlaf, Träumen o.ä., außer der Nutzer hat dich per dauerhafter Anweisung (siehe unten) ausdrücklich darum gebeten
 - Du motivierst und ermutigst ehrlich, ohne zu schmeicheln
-- Du antwortest natürlich und prägnant; ausführlich nur, wenn nötig oder gewünscht
 - Du hilfst bei Notizen, Zielen, Finanzen, Planung und allem Persönlichen
+
+WICHTIG für deine Antworten:
+- Beziehe dich IMMER auf den bisherigen Gesprächsverlauf (die vorherigen Nachrichten). Erkenne Zusammenhänge und beziehe dich auf das, was gerade gesagt wurde.
+- Antworte PRÄZISE und auf den Punkt. Kurze, klare Antworten (1-4 Sätze), außer der Nutzer will ausdrücklich mehr Details.
+- Da deine Antworten oft vorgelesen werden: sprich natürlich, ohne Aufzählungszeichen, Sternchen oder Markdown. Schreibe in fließenden Sätzen.
+- Keine leeren Floskeln, kein Wiederholen der Frage. Geh direkt zur Sache.
 
 {facts_text}
 
@@ -176,7 +181,7 @@ async def chat_ollama(messages: list, model: str = None) -> Optional[str]:
                     "model": model,
                     "messages": messages,
                     "stream": False,
-                    "options": {"temperature": 0.7, "num_predict": 1024},
+                    "options": {"temperature": 0.5, "num_predict": 700},
                 },
             )
             if resp.status_code == 200:
@@ -196,8 +201,8 @@ def chat_groq(messages: list) -> Optional[str]:
         completion = client.chat.completions.create(
             model=GROQ_MODEL,
             messages=messages,
-            temperature=0.7,
-            max_tokens=1024,
+            temperature=0.5,
+            max_tokens=700,
         )
         return completion.choices[0].message.content
     except Exception as e:
@@ -217,16 +222,23 @@ async def chat(request: dict):
     message = request.get("message", "")
     context = request.get("context", {})
     custom_prompt = request.get("system_prompt")
+    history = request.get("history", [])
 
     if not message:
         raise HTTPException(status_code=400, detail="message is required")
 
     system_prompt = build_system_prompt(context, custom_prompt)
 
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": message},
-    ]
+    # Build the message list WITH recent conversation history so Jarvis
+    # remembers the immediate context of the conversation.
+    messages = [{"role": "system", "content": system_prompt}]
+    if isinstance(history, list):
+        for turn in history[-12:]:
+            role = turn.get("role")
+            content = (turn.get("content") or "").strip()
+            if role in ("user", "assistant") and content:
+                messages.append({"role": role, "content": content})
+    messages.append({"role": "user", "content": message})
 
     start_ms = int(time.time() * 1000)
     response_text = None
@@ -320,119 +332,52 @@ async def voice_stt(audio: UploadFile = File(...)):
     return {"text": text, "language": language, "duration_ms": duration_ms}
 
 
+TTS_VOICE = os.getenv("TTS_VOICE", "de-DE-ConradNeural")
+
+
 @app.post("/voice/tts")
 async def voice_tts(request: dict):
     """
-    Text-to-speech using piper-tts subprocess.
-    Request: {text: str, speed: float}
-    Returns: audio/wav bytes OR JSON error if piper not available.
+    Text-to-speech using Microsoft Edge neural voices (edge-tts).
+    Free, no API key, natural-sounding German voice.
+    Request: {text: str, speed: float, voice: str optional}
+    Returns: audio/mpeg bytes OR JSON fallback if edge-tts is unavailable.
     """
-    text = request.get("text", "")
+    text = (request.get("text") or "").strip()
     speed = float(request.get("speed", 1.0))
+    voice = request.get("voice") or TTS_VOICE
 
     if not text:
         raise HTTPException(status_code=400, detail="text is required")
 
-    # Check if piper is available
-    piper_path = shutil.which("piper") or shutil.which("piper-tts")
-    if piper_path is None:
-        # Check common install locations
-        for candidate in ["/usr/local/bin/piper", "/usr/bin/piper", "/app/piper"]:
-            if os.path.isfile(candidate):
-                piper_path = candidate
-                break
-
-    if piper_path is None:
-        return JSONResponse(
-            content={
-                "audio": None,
-                "error": "piper_not_installed",
-                "fallback": "use_device_tts",
-                "message": "Piper TTS binary not found. Install piper-tts or use device TTS.",
-            }
-        )
-
-    # Determine voice model
-    models_dir = os.getenv("PIPER_MODELS_DIR", "/app/models/piper")
-    lang = os.getenv("TTS_LANGUAGE", "en")
-    if lang.startswith("de"):
-        voice_model = os.path.join(models_dir, "de_DE-thorsten-high.onnx")
-        voice_config = os.path.join(models_dir, "de_DE-thorsten-high.onnx.json")
-    else:
-        voice_model = os.path.join(models_dir, "en_US-ryan-high.onnx")
-        voice_config = os.path.join(models_dir, "en_US-ryan-high.onnx.json")
-
-    # Fallback: use any available model
-    if not os.path.isfile(voice_model):
-        # Try to find any .onnx file in models dir
-        if os.path.isdir(models_dir):
-            for fname in os.listdir(models_dir):
-                if fname.endswith(".onnx") and not fname.endswith(".json"):
-                    voice_model = os.path.join(models_dir, fname)
-                    voice_config = voice_model + ".json"
-                    break
-
-    if not os.path.isfile(voice_model):
-        return JSONResponse(
-            content={
-                "audio": None,
-                "error": "piper_model_not_found",
-                "fallback": "use_device_tts",
-                "message": f"Piper voice model not found at {voice_model}. Download a voice model.",
-            }
-        )
-
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as out_tmp:
-        out_path = out_tmp.name
+    # Convert speed multiplier to edge-tts rate string, e.g. 1.1 -> "+10%"
+    pct = int(round((speed - 1.0) * 100))
+    rate = f"+{pct}%" if pct >= 0 else f"{pct}%"
 
     try:
-        cmd = [
-            piper_path,
-            "--model", voice_model,
-            "--output_file", out_path,
-            "--length_scale", str(1.0 / speed),
-        ]
-        if os.path.isfile(voice_config):
-            cmd += ["--config", voice_config]
+        import edge_tts
 
-        proc = subprocess.run(
-            cmd,
-            input=text.encode("utf-8"),
-            capture_output=True,
-            timeout=30,
-        )
+        communicate = edge_tts.Communicate(text, voice=voice, rate=rate)
+        audio = bytearray()
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                audio.extend(chunk["data"])
 
-        if proc.returncode != 0:
-            stderr = proc.stderr.decode("utf-8", errors="replace")
-            logger.error(f"Piper failed: {stderr}")
-            return JSONResponse(
-                content={
-                    "audio": None,
-                    "error": "piper_failed",
-                    "fallback": "use_device_tts",
-                    "detail": stderr[:500],
-                }
-            )
+        if not audio:
+            raise RuntimeError("edge-tts returned no audio")
 
-        with open(out_path, "rb") as f:
-            audio_bytes = f.read()
+        return Response(content=bytes(audio), media_type="audio/mpeg")
 
-        return Response(content=audio_bytes, media_type="audio/wav")
-
-    except subprocess.TimeoutExpired:
-        return JSONResponse(
-            content={"audio": None, "error": "piper_timeout", "fallback": "use_device_tts"}
-        )
     except Exception as e:
-        logger.error(f"TTS error: {e}")
+        logger.error(f"edge-tts failed: {e}")
         return JSONResponse(
-            content={"audio": None, "error": str(e), "fallback": "use_device_tts"}
+            content={
+                "audio": None,
+                "error": str(e),
+                "fallback": "use_device_tts",
+                "message": "Edge-TTS not available (needs internet). Falling back to device TTS.",
+            }
         )
-    finally:
-        try:
-            os.unlink(out_path)
-        except Exception:
-            pass
 
 
 @app.post("/extract")
