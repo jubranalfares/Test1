@@ -89,13 +89,19 @@ class ApiService extends ChangeNotifier {
   }
 
   // --- Chat ---
-  Future<Map<String, dynamic>> chat(String message) async {
+  Future<Map<String, dynamic>> chat(
+    String message, {
+    List<Map<String, String>>? history,
+  }) async {
     try {
       final response = await http
           .post(
             Uri.parse('$_baseUrl/chat'),
             headers: _headers,
-            body: jsonEncode({'message': message}),
+            body: jsonEncode({
+              'message': message,
+              'history': history ?? [],
+            }),
           )
           .timeout(const Duration(seconds: 60));
 
@@ -131,6 +137,34 @@ class ApiService extends ChangeNotifier {
       return null;
     } catch (e) {
       debugPrint('Transcribe error: $e');
+      return null;
+    }
+  }
+
+  /// Fetches the backend's natural neural voice for [text].
+  /// POSTs to `/voice/tts` with the auth header. Returns the MP3 bytes when
+  /// the backend responds 200 with an `audio/*` content type; otherwise
+  /// (JSON fallback body, error, offline) returns null so the caller can
+  /// fall back to on-device TTS.
+  Future<Uint8List?> fetchTts(String text, {double speed = 1.0}) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/voice/tts'),
+            headers: _headers,
+            body: jsonEncode({'text': text, 'speed': speed}),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final contentType = response.headers['content-type'] ?? '';
+        if (contentType.contains('audio')) {
+          return response.bodyBytes;
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('fetchTts error: $e');
       return null;
     }
   }

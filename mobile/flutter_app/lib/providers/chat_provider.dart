@@ -71,6 +71,17 @@ class ChatProvider extends ChangeNotifier {
   Future<void> sendMessage(String text) async {
     if (text.trim().isEmpty) return;
 
+    // Build conversation history from prior messages (before adding the new
+    // user message) so Jarvis remembers the context. Keep the last 12 turns.
+    final history = _messages
+        .map((m) => {
+              'role': m.isUser ? 'user' : 'assistant',
+              'content': m.content,
+            })
+        .toList();
+    final trimmedHistory =
+        history.length > 12 ? history.sublist(history.length - 12) : history;
+
     final userMessage = Message(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       content: text.trim(),
@@ -84,7 +95,8 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _apiService.chat(text.trim());
+      final response =
+          await _apiService.chat(text.trim(), history: trimmedHistory);
       final replyText = response['response']?.toString() ??
           response['message']?.toString() ??
           response['text']?.toString() ??
