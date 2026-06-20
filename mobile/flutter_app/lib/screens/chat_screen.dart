@@ -6,6 +6,7 @@ import '../services/voice_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/voice_button.dart';
+import 'live_call_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -127,6 +128,14 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.phone_in_talk_rounded,
+                color: AppColors.success),
+            tooltip: 'Live mit Jarvis sprechen',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const LiveCallScreen()),
+            ),
+          ),
           Builder(
             builder: (context) {
               final voice = context.watch<VoiceService>();
