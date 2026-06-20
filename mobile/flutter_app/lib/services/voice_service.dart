@@ -43,6 +43,12 @@ class VoiceService extends ChangeNotifier {
       await _flutterTts.setSpeechRate(0.5);
       await _flutterTts.setPitch(1.0);
       await _flutterTts.setVolume(1.0);
+      // Make speak() futures complete only when the utterance is done.
+      // Required for the live conversation loop, which must wait for Jarvis
+      // to finish speaking before it starts listening again.
+      try {
+        await _flutterTts.awaitSpeakCompletion(true);
+      } catch (_) {}
       _flutterTts.setStartHandler(() {
         _isPlaying = true;
         notifyListeners();
@@ -195,6 +201,29 @@ class VoiceService extends ChangeNotifier {
   /// Primary speak path for Jarvis text — uses on-device TTS (reliable
   /// across web, iOS and Android) instead of the unreliable backend TTS.
   Future<void> speak(String text) => speakText(text);
+
+  /// Speaks [text] and only completes once the utterance has finished
+  /// playing (TTS init configures awaitSpeakCompletion). Used by the live
+  /// conversation loop so it can listen again right after Jarvis stops
+  /// talking. Ignores the mute toggle on purpose? No — it respects it: if
+  /// TTS is disabled, returns immediately.
+  Future<void> speakAndWait(String text) async {
+    if (!_ttsEnabled) return;
+    final clean = text.trim();
+    if (clean.isEmpty) return;
+
+    try {
+      if (!_ttsConfigured) {
+        await _initTts();
+      }
+      await stopSpeaking();
+      await _flutterTts.setLanguage('de-DE');
+      // With awaitSpeakCompletion(true) this resolves when speaking ends.
+      await _flutterTts.speak(clean);
+    } catch (e) {
+      debugPrint('speakAndWait error: $e');
+    }
+  }
 
   Future<void> stopSpeaking() async {
     try {

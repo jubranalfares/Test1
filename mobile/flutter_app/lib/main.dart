@@ -5,6 +5,7 @@ import 'providers/auth_provider.dart';
 import 'providers/chat_provider.dart';
 import 'services/api_service.dart';
 import 'services/voice_service.dart';
+import 'services/live_conversation_service.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
@@ -41,6 +42,9 @@ void main() async {
           create: (ctx) => ChatProvider(apiService, voiceService),
           update: (ctx, api, voice, prev) =>
               prev ?? ChatProvider(api, voice),
+        ),
+        ChangeNotifierProvider<LiveConversationService>(
+          create: (_) => LiveConversationService(apiService, voiceService),
         ),
       ],
       child: const JarvisApp(),

@@ -33,6 +33,10 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 30  # 30 days
 AI_ENGINE_URL = os.getenv("AI_ENGINE_URL", "http://localhost:8001")
 MEMORY_ENGINE_URL = os.getenv("MEMORY_ENGINE_URL", "http://localhost:8002")
 NOTES_SERVICE_URL = os.getenv("NOTES_SERVICE_URL", "http://localhost:8003")
+GOALS_SERVICE_URL = os.getenv("GOALS_SERVICE_URL", "http://localhost:8004")
+FINANCE_SERVICE_URL = os.getenv("FINANCE_SERVICE_URL", "http://localhost:8005")
+SPORT_SERVICE_URL = os.getenv("SPORT_SERVICE_URL", "http://localhost:8006")
+CALENDAR_SERVICE_URL = os.getenv("CALENDAR_SERVICE_URL", "http://localhost:8007")
 
 JARVIS_USERNAME = "jarvis"
 
@@ -273,6 +277,90 @@ async def notes_proxy_root(request: Request, current_user: str = Depends(get_cur
 
 
 # ---------------------------------------------------------------------------
+# Goals proxy  (-> goals-service)
+# ---------------------------------------------------------------------------
+@app.api_route("/goals/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+async def goals_proxy(path: str, request: Request, current_user: str = Depends(get_current_user)):
+    async with get_client() as client:
+        return await _proxy(client, request.method, GOALS_SERVICE_URL, request, f"/goals/{path}")
+
+
+@app.api_route("/goals", methods=["GET", "POST"])
+async def goals_proxy_root(request: Request, current_user: str = Depends(get_current_user)):
+    async with get_client() as client:
+        return await _proxy(client, request.method, GOALS_SERVICE_URL, request, "/goals")
+
+
+# ---------------------------------------------------------------------------
+# Finance proxy  (-> finance-service: /finance + /transactions)
+# ---------------------------------------------------------------------------
+@app.api_route("/finance/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+async def finance_proxy(path: str, request: Request, current_user: str = Depends(get_current_user)):
+    async with get_client() as client:
+        return await _proxy(client, request.method, FINANCE_SERVICE_URL, request, f"/finance/{path}")
+
+
+@app.api_route("/finance", methods=["GET", "POST"])
+async def finance_proxy_root(request: Request, current_user: str = Depends(get_current_user)):
+    async with get_client() as client:
+        return await _proxy(client, request.method, FINANCE_SERVICE_URL, request, "/finance")
+
+
+@app.api_route("/transactions/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+async def transactions_proxy(path: str, request: Request, current_user: str = Depends(get_current_user)):
+    async with get_client() as client:
+        return await _proxy(client, request.method, FINANCE_SERVICE_URL, request, f"/transactions/{path}")
+
+
+@app.api_route("/transactions", methods=["GET", "POST"])
+async def transactions_proxy_root(request: Request, current_user: str = Depends(get_current_user)):
+    async with get_client() as client:
+        return await _proxy(client, request.method, FINANCE_SERVICE_URL, request, "/transactions")
+
+
+# ---------------------------------------------------------------------------
+# Sport proxy  (-> sport-service: /sport + /workouts)
+# ---------------------------------------------------------------------------
+@app.api_route("/sport/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+async def sport_proxy(path: str, request: Request, current_user: str = Depends(get_current_user)):
+    async with get_client() as client:
+        return await _proxy(client, request.method, SPORT_SERVICE_URL, request, f"/sport/{path}")
+
+
+@app.api_route("/sport", methods=["GET", "POST"])
+async def sport_proxy_root(request: Request, current_user: str = Depends(get_current_user)):
+    async with get_client() as client:
+        return await _proxy(client, request.method, SPORT_SERVICE_URL, request, "/sport")
+
+
+@app.api_route("/workouts/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+async def workouts_proxy(path: str, request: Request, current_user: str = Depends(get_current_user)):
+    async with get_client() as client:
+        return await _proxy(client, request.method, SPORT_SERVICE_URL, request, f"/workouts/{path}")
+
+
+@app.api_route("/workouts", methods=["GET", "POST"])
+async def workouts_proxy_root(request: Request, current_user: str = Depends(get_current_user)):
+    async with get_client() as client:
+        return await _proxy(client, request.method, SPORT_SERVICE_URL, request, "/workouts")
+
+
+# ---------------------------------------------------------------------------
+# Calendar proxy  (-> calendar-service: /events)
+# ---------------------------------------------------------------------------
+@app.api_route("/events/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+async def events_proxy(path: str, request: Request, current_user: str = Depends(get_current_user)):
+    async with get_client() as client:
+        return await _proxy(client, request.method, CALENDAR_SERVICE_URL, request, f"/events/{path}")
+
+
+@app.api_route("/events", methods=["GET", "POST"])
+async def events_proxy_root(request: Request, current_user: str = Depends(get_current_user)):
+    async with get_client() as client:
+        return await _proxy(client, request.method, CALENDAR_SERVICE_URL, request, "/events")
+
+
+# ---------------------------------------------------------------------------
 # Memory endpoints
 # ---------------------------------------------------------------------------
 @app.get("/memory/facts")
@@ -327,6 +415,10 @@ async def health():
         "ai-engine": f"{AI_ENGINE_URL}/health",
         "memory-engine": f"{MEMORY_ENGINE_URL}/health",
         "notes-service": f"{NOTES_SERVICE_URL}/health",
+        "goals-service": f"{GOALS_SERVICE_URL}/health",
+        "finance-service": f"{FINANCE_SERVICE_URL}/health",
+        "sport-service": f"{SPORT_SERVICE_URL}/health",
+        "calendar-service": f"{CALENDAR_SERVICE_URL}/health",
     }
     results = {"gateway": "ok", "services": {}}
 

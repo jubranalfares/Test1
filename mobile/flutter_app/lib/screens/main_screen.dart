@@ -4,6 +4,7 @@ import '../providers/chat_provider.dart';
 import '../services/voice_service.dart';
 import '../theme/app_theme.dart';
 import 'chat_screen.dart';
+import 'live_call_screen.dart';
 import 'notes_screen.dart';
 import 'goals_screen.dart';
 import 'finance_screen.dart';
@@ -188,7 +189,10 @@ class _VoiceFABState extends State<_VoiceFAB>
     return Padding(
       padding: const EdgeInsets.only(bottom: 70),
       child: GestureDetector(
-        onTap: _handleVoiceTap,
+        // Primary tap opens the live, hands-free conversation with Jarvis.
+        onTap: _openLiveCall,
+        // Long-press keeps the quick single voice-message recording.
+        onLongPress: _handleVoiceTap,
         child: AnimatedBuilder(
           animation: _pulseAnim,
           builder: (context, child) {
@@ -238,6 +242,12 @@ class _VoiceFABState extends State<_VoiceFAB>
           ),
         ),
       ),
+    );
+  }
+
+  void _openLiveCall() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const LiveCallScreen()),
     );
   }
 

@@ -10,12 +10,20 @@ services:
       - AI_ENGINE_URL=http://ai-engine:8001
       - MEMORY_ENGINE_URL=http://memory-engine:8002
       - NOTES_SERVICE_URL=http://notes-service:8003
+      - GOALS_SERVICE_URL=http://goals-service:8004
+      - FINANCE_SERVICE_URL=http://finance-service:8005
+      - SPORT_SERVICE_URL=http://sport-service:8006
+      - CALENDAR_SERVICE_URL=http://calendar-service:8007
       - SECRET_KEY=${SECRET_KEY:-jarvis-secret-2024}
       - USER_PASSWORD=${USER_PASSWORD:-jarvis2024}
     depends_on:
       - ai-engine
       - memory-engine
       - notes-service
+      - goals-service
+      - finance-service
+      - sport-service
+      - calendar-service
     restart: unless-stopped
     networks:
       - jarvis-network
@@ -62,11 +70,59 @@ services:
     networks:
       - jarvis-network
 
+  goals-service:
+    build: ./backend/goals-service
+    container_name: jarvis-goals
+    ports:
+      - "8004:8004"
+    volumes:
+      - goals-data:/app/data
+    restart: unless-stopped
+    networks:
+      - jarvis-network
+
+  finance-service:
+    build: ./backend/finance-service
+    container_name: jarvis-finance
+    ports:
+      - "8005:8005"
+    volumes:
+      - finance-data:/app/data
+    restart: unless-stopped
+    networks:
+      - jarvis-network
+
+  sport-service:
+    build: ./backend/sport-service
+    container_name: jarvis-sport
+    ports:
+      - "8006:8006"
+    volumes:
+      - sport-data:/app/data
+    restart: unless-stopped
+    networks:
+      - jarvis-network
+
+  calendar-service:
+    build: ./backend/calendar-service
+    container_name: jarvis-calendar
+    ports:
+      - "8007:8007"
+    volumes:
+      - calendar-data:/app/data
+    restart: unless-stopped
+    networks:
+      - jarvis-network
+
 volumes:
   whisper-cache:
   memory-data:
   chroma-data:
   notes-data:
+  goals-data:
+  finance-data:
+  sport-data:
+  calendar-data:
 
 networks:
   jarvis-network:
