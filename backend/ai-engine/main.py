@@ -27,7 +27,9 @@ load_dotenv()
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
+ASSISTANT_LANGUAGE = os.getenv("ASSISTANT_LANGUAGE", "de")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ai-engine")
@@ -91,18 +93,19 @@ def build_system_prompt(context: dict, custom_prompt: Optional[str] = None) -> s
     facts = context.get("facts", [])
     rules = context.get("rules", [])
     recent_memories = context.get("recent_memories", [])
-    is_morning = context.get("is_morning", False)
-    briefing = context.get("briefing", "")
+    local_time = context.get("local_time", "")
 
     facts_text = ""
     if facts:
         facts_lines = [f"  - {f.get('key', '')}: {f.get('value', '')}" for f in facts[:20]]
-        facts_text = "Known facts about the user:\n" + "\n".join(facts_lines)
+        facts_text = "Was du über den Nutzer weißt:\n" + "\n".join(facts_lines)
 
     rules_text = ""
     if rules:
-        rules_lines = [f"  - [{r.get('trigger', '')}] → {r.get('description', r.get('action', ''))}" for r in rules]
-        rules_text = "Behavior rules to follow:\n" + "\n".join(rules_lines)
+        rules_lines = [f"  - {r.get('description', '') or r.get('action', '')}" for r in rules]
+        rules_text = (
+            "Dauerhafte Anweisungen des Nutzers, die du IMMER befolgst:\n" + "\n".join(rules_lines)
+        )
 
     memories_text = ""
     if recent_memories:
@@ -111,34 +114,34 @@ def build_system_prompt(context: dict, custom_prompt: Optional[str] = None) -> s
             user_msg = m.get("user_message", m.get("document", ""))[:200]
             asst_msg = m.get("assistant_message", "")[:200]
             if user_msg:
-                mem_lines.append(f"  User: {user_msg}")
+                mem_lines.append(f"  Nutzer: {user_msg}")
             if asst_msg:
                 mem_lines.append(f"  Jarvis: {asst_msg}")
         if mem_lines:
-            memories_text = "Recent conversation snippets:\n" + "\n".join(mem_lines)
+            memories_text = "Relevante frühere Gespräche:\n" + "\n".join(mem_lines)
 
-    morning_text = ""
-    if is_morning:
-        morning_text = (
-            "It is morning time. Greet the user warmly, ask how they slept if not already done today.\n"
-        )
-        if briefing:
-            morning_text += f"Today's briefing: {briefing}\n"
+    if not local_time:
+        local_time = datetime.now().strftime("%A, %d.%m.%Y %H:%M")
 
-    now = datetime.now()
-    date_str = now.strftime("%A, %B %d, %Y %H:%M")
+    system = f"""Du bist Jarvis, der persönliche KI-Assistent des Nutzers — wie ein hochintelligenter, motivierender Partner, der sich an alles erinnert und dem Nutzer hilft, seine Ziele zu erreichen.
 
-    system = f"""You are Jarvis, an intelligent personal AI assistant. You are like a brilliant, motivating partner who remembers everything about the user and helps them achieve their goals.
+Aktuelles Datum und Uhrzeit: {local_time}
 
-Current date and time: {date_str}
+WICHTIGSTE REGEL: Antworte AUSSCHLIESSLICH auf Deutsch. Niemals auf Englisch, egal in welcher Sprache die Frage gestellt wird.
 
-Your personality:
-- Intelligent, warm, and proactive
-- You remember past conversations and reference them naturally
-- You motivate and encourage without being sycophantic
-- You are direct and concise unless detail is requested
-- You speak in the user's language naturally
-- You help with notes, goals, finance tracking, planning, and anything personal
+Deine Persönlichkeit und dein Verhalten:
+- Intelligent, warmherzig und proaktiv, aber nie aufdringlich
+- Du gehst direkt auf das ein, was der Nutzer gerade schreibt — du beginnst NICHT jede Nachricht mit einer Begrüßung
+- Begrüße nur dann, wenn es das erste Gespräch ist oder der Nutzer dich begrüßt
+- Frage NICHT von dir aus nach Schlaf, Träumen o.ä., außer der Nutzer hat dich per dauerhafter Anweisung (siehe unten) ausdrücklich darum gebeten
+- Du motivierst und ermutigst ehrlich, ohne zu schmeicheln
+- Du hilfst bei Notizen, Zielen, Finanzen, Planung und allem Persönlichen
+
+WICHTIG für deine Antworten:
+- Beziehe dich IMMER auf den bisherigen Gesprächsverlauf (die vorherigen Nachrichten). Erkenne Zusammenhänge und beziehe dich auf das, was gerade gesagt wurde.
+- Antworte PRÄZISE und auf den Punkt. Kurze, klare Antworten (1-4 Sätze), außer der Nutzer will ausdrücklich mehr Details.
+- Da deine Antworten oft vorgelesen werden: sprich natürlich, ohne Aufzählungszeichen, Sternchen oder Markdown. Schreibe in fließenden Sätzen.
+- Keine leeren Floskeln, kein Wiederholen der Frage. Geh direkt zur Sache.
 
 {facts_text}
 
@@ -146,9 +149,7 @@ Your personality:
 
 {memories_text}
 
-{morning_text}
-
-Always be helpful, honest, and personalized. If you recall relevant past context, reference it naturally."""
+Sei immer hilfreich, ehrlich und persönlich. Wenn du relevanten früheren Kontext kennst, beziehe dich natürlich darauf. Denk daran: immer auf Deutsch."""
 
     # Clean up extra blank lines
     lines = [line for line in system.split("\n")]
@@ -180,7 +181,7 @@ async def chat_ollama(messages: list, model: str = None) -> Optional[str]:
                     "model": model,
                     "messages": messages,
                     "stream": False,
-                    "options": {"temperature": 0.7, "num_predict": 1024},
+                    "options": {"temperature": 0.5, "num_predict": 700},
                 },
             )
             if resp.status_code == 200:
@@ -198,10 +199,10 @@ def chat_groq(messages: list) -> Optional[str]:
         return None
     try:
         completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model=GROQ_MODEL,
             messages=messages,
-            temperature=0.7,
-            max_tokens=1024,
+            temperature=0.5,
+            max_tokens=700,
         )
         return completion.choices[0].message.content
     except Exception as e:
@@ -221,40 +222,59 @@ async def chat(request: dict):
     message = request.get("message", "")
     context = request.get("context", {})
     custom_prompt = request.get("system_prompt")
+    history = request.get("history", [])
 
     if not message:
         raise HTTPException(status_code=400, detail="message is required")
 
     system_prompt = build_system_prompt(context, custom_prompt)
 
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": message},
-    ]
+    # Build the message list WITH recent conversation history so Jarvis
+    # remembers the immediate context of the conversation.
+    messages = [{"role": "system", "content": system_prompt}]
+    if isinstance(history, list):
+        for turn in history[-12:]:
+            role = turn.get("role")
+            content = (turn.get("content") or "").strip()
+            if role in ("user", "assistant") and content:
+                messages.append({"role": role, "content": content})
+    messages.append({"role": "user", "content": message})
 
     start_ms = int(time.time() * 1000)
     response_text = None
     model_used = "unknown"
 
-    # Prefer Groq when API key is configured (fast cloud inference)
-    if GROQ_API_KEY:
+    # Prefer Groq when a key is configured (fast + smart 70B), else use local Ollama.
+    # Whichever is primary, the other serves as automatic fallback.
+    prefer_groq = bool(GROQ_API_KEY)
+
+    if prefer_groq:
         response_text = chat_groq(messages)
         if response_text:
-            model_used = "groq/llama-3.1-8b-instant"
-
-    # Fall back to local Ollama
-    if not response_text:
+            model_used = f"groq/{GROQ_MODEL}"
+        if not response_text:
+            try:
+                response_text = await chat_ollama(messages)
+                if response_text:
+                    model_used = f"ollama/{OLLAMA_MODEL}"
+            except Exception as e:
+                logger.warning(f"Ollama fallback failed: {e}")
+    else:
         try:
             response_text = await chat_ollama(messages)
             if response_text:
                 model_used = f"ollama/{OLLAMA_MODEL}"
         except Exception as e:
             logger.warning(f"Ollama attempt failed: {e}")
+        if not response_text:
+            response_text = chat_groq(messages)
+            if response_text:
+                model_used = f"groq/{GROQ_MODEL}"
 
     if not response_text:
         response_text = (
-            "I'm sorry, I'm having trouble connecting to my AI backend right now. "
-            "Please ensure Ollama is running or configure a GROQ_API_KEY."
+            "Entschuldige, ich kann meine KI gerade nicht erreichen. "
+            "Bitte stelle sicher, dass Ollama läuft oder ein GROQ_API_KEY konfiguriert ist."
         )
         model_used = "fallback/static"
 
@@ -312,119 +332,52 @@ async def voice_stt(audio: UploadFile = File(...)):
     return {"text": text, "language": language, "duration_ms": duration_ms}
 
 
+TTS_VOICE = os.getenv("TTS_VOICE", "de-DE-ConradNeural")
+
+
 @app.post("/voice/tts")
 async def voice_tts(request: dict):
     """
-    Text-to-speech using piper-tts subprocess.
-    Request: {text: str, speed: float}
-    Returns: audio/wav bytes OR JSON error if piper not available.
+    Text-to-speech using Microsoft Edge neural voices (edge-tts).
+    Free, no API key, natural-sounding German voice.
+    Request: {text: str, speed: float, voice: str optional}
+    Returns: audio/mpeg bytes OR JSON fallback if edge-tts is unavailable.
     """
-    text = request.get("text", "")
+    text = (request.get("text") or "").strip()
     speed = float(request.get("speed", 1.0))
+    voice = request.get("voice") or TTS_VOICE
 
     if not text:
         raise HTTPException(status_code=400, detail="text is required")
 
-    # Check if piper is available
-    piper_path = shutil.which("piper") or shutil.which("piper-tts")
-    if piper_path is None:
-        # Check common install locations
-        for candidate in ["/usr/local/bin/piper", "/usr/bin/piper", "/app/piper"]:
-            if os.path.isfile(candidate):
-                piper_path = candidate
-                break
-
-    if piper_path is None:
-        return JSONResponse(
-            content={
-                "audio": None,
-                "error": "piper_not_installed",
-                "fallback": "use_device_tts",
-                "message": "Piper TTS binary not found. Install piper-tts or use device TTS.",
-            }
-        )
-
-    # Determine voice model
-    models_dir = os.getenv("PIPER_MODELS_DIR", "/app/models/piper")
-    lang = os.getenv("TTS_LANGUAGE", "en")
-    if lang.startswith("de"):
-        voice_model = os.path.join(models_dir, "de_DE-thorsten-high.onnx")
-        voice_config = os.path.join(models_dir, "de_DE-thorsten-high.onnx.json")
-    else:
-        voice_model = os.path.join(models_dir, "en_US-ryan-high.onnx")
-        voice_config = os.path.join(models_dir, "en_US-ryan-high.onnx.json")
-
-    # Fallback: use any available model
-    if not os.path.isfile(voice_model):
-        # Try to find any .onnx file in models dir
-        if os.path.isdir(models_dir):
-            for fname in os.listdir(models_dir):
-                if fname.endswith(".onnx") and not fname.endswith(".json"):
-                    voice_model = os.path.join(models_dir, fname)
-                    voice_config = voice_model + ".json"
-                    break
-
-    if not os.path.isfile(voice_model):
-        return JSONResponse(
-            content={
-                "audio": None,
-                "error": "piper_model_not_found",
-                "fallback": "use_device_tts",
-                "message": f"Piper voice model not found at {voice_model}. Download a voice model.",
-            }
-        )
-
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as out_tmp:
-        out_path = out_tmp.name
+    # Convert speed multiplier to edge-tts rate string, e.g. 1.1 -> "+10%"
+    pct = int(round((speed - 1.0) * 100))
+    rate = f"+{pct}%" if pct >= 0 else f"{pct}%"
 
     try:
-        cmd = [
-            piper_path,
-            "--model", voice_model,
-            "--output_file", out_path,
-            "--length_scale", str(1.0 / speed),
-        ]
-        if os.path.isfile(voice_config):
-            cmd += ["--config", voice_config]
+        import edge_tts
 
-        proc = subprocess.run(
-            cmd,
-            input=text.encode("utf-8"),
-            capture_output=True,
-            timeout=30,
-        )
+        communicate = edge_tts.Communicate(text, voice=voice, rate=rate)
+        audio = bytearray()
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                audio.extend(chunk["data"])
 
-        if proc.returncode != 0:
-            stderr = proc.stderr.decode("utf-8", errors="replace")
-            logger.error(f"Piper failed: {stderr}")
-            return JSONResponse(
-                content={
-                    "audio": None,
-                    "error": "piper_failed",
-                    "fallback": "use_device_tts",
-                    "detail": stderr[:500],
-                }
-            )
+        if not audio:
+            raise RuntimeError("edge-tts returned no audio")
 
-        with open(out_path, "rb") as f:
-            audio_bytes = f.read()
+        return Response(content=bytes(audio), media_type="audio/mpeg")
 
-        return Response(content=audio_bytes, media_type="audio/wav")
-
-    except subprocess.TimeoutExpired:
-        return JSONResponse(
-            content={"audio": None, "error": "piper_timeout", "fallback": "use_device_tts"}
-        )
     except Exception as e:
-        logger.error(f"TTS error: {e}")
+        logger.error(f"edge-tts failed: {e}")
         return JSONResponse(
-            content={"audio": None, "error": str(e), "fallback": "use_device_tts"}
+            content={
+                "audio": None,
+                "error": str(e),
+                "fallback": "use_device_tts",
+                "message": "Edge-TTS not available (needs internet). Falling back to device TTS.",
+            }
         )
-    finally:
-        try:
-            os.unlink(out_path)
-        except Exception:
-            pass
 
 
 @app.post("/extract")
@@ -467,16 +420,15 @@ RESPOND ONLY WITH VALID JSON, no explanation:
 
     response_text = None
 
-    # Prefer Groq when API key is configured
-    if GROQ_API_KEY:
-        response_text = chat_groq(messages)
+    # Try Ollama
+    try:
+        response_text = await chat_ollama(messages)
+    except Exception:
+        pass
 
-    # Fall back to Ollama
+    # Fallback Groq
     if not response_text:
-        try:
-            response_text = await chat_ollama(messages)
-        except Exception:
-            pass
+        response_text = chat_groq(messages)
 
     if not response_text:
         return {

@@ -223,7 +223,7 @@ async def voice_tts(
             resp = await client.post(f"{AI_ENGINE_URL}/voice/tts", json=body)
             content_type = resp.headers.get("content-type", "application/json")
             if "audio" in content_type:
-                return Response(content=resp.content, media_type="audio/wav")
+                return Response(content=resp.content, media_type=content_type)
             return resp.json()
         except Exception as e:
             logger.error(f"TTS proxy failed: {e}")

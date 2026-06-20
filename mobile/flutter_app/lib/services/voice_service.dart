@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
@@ -178,19 +180,77 @@ class VoiceService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Speaks [text] aloud using the on-device German TTS engine.
-  /// Stops any current speech first. Does nothing if TTS is muted.
+  /// Computes a safety timeout so a speak call can never hang forever:
+  /// at least 4s, growing with the length of the text.
+  Duration _speakSafetyTimeout(String text) {
+    final ms = (text.length * 90).clamp(4000, 600000);
+    final floor = const Duration(seconds: 4).inMilliseconds;
+    return Duration(milliseconds: ms < floor ? floor : ms);
+  }
+
+  /// Tries to play the backend's natural neural voice for [clean].
+  /// Returns true if playback was started (and, when [awaitCompletion],
+  /// finished/timed out); false if the backend returned no audio so the
+  /// caller should fall back to flutter_tts.
+  Future<bool> _playBackendTts(String clean, {required bool awaitCompletion}) async {
+    Uint8List? bytes;
+    try {
+      bytes = await _apiService.fetchTts(clean);
+    } catch (e) {
+      debugPrint('fetchTts error: $e');
+      bytes = null;
+    }
+    if (bytes == null || bytes.isEmpty) return false;
+
+    try {
+      if (awaitCompletion) {
+        final completer = Completer<void>();
+        late final StreamSubscription<void> sub;
+        sub = _player.onPlayerComplete.listen((_) {
+          if (!completer.isCompleted) completer.complete();
+        });
+        try {
+          await _player.play(BytesSource(bytes));
+          // Wait for actual completion or a safety timeout so the live
+          // conversation loop can never stall.
+          await completer.future.timeout(
+            _speakSafetyTimeout(clean),
+            onTimeout: () {},
+          );
+        } finally {
+          await sub.cancel();
+        }
+      } else {
+        await _player.play(BytesSource(bytes));
+      }
+      return true;
+    } catch (e) {
+      debugPrint('Backend TTS playback error: $e');
+      // Playback failed even though we had bytes — fall back to flutter_tts.
+      return false;
+    }
+  }
+
+  /// Speaks [text] aloud. Prefers the backend's natural neural voice and
+  /// falls back to the on-device German TTS engine when the backend has no
+  /// audio. Stops any current speech first. Does nothing if TTS is muted.
   Future<void> speakText(String text) async {
     if (!_ttsEnabled) return;
     final clean = text.trim();
     if (clean.isEmpty) return;
 
     try {
+      // Stop anything currently playing/speaking.
+      await stopSpeaking();
+
+      // 1) Try the backend's natural neural voice.
+      final played = await _playBackendTts(clean, awaitCompletion: false);
+      if (played) return;
+
+      // 2) Fall back to on-device flutter_tts.
       if (!_ttsConfigured) {
         await _initTts();
       }
-      // Stop anything currently playing/speaking
-      await stopSpeaking();
       await _flutterTts.setLanguage('de-DE');
       await _flutterTts.speak(clean);
     } catch (e) {
@@ -198,28 +258,36 @@ class VoiceService extends ChangeNotifier {
     }
   }
 
-  /// Primary speak path for Jarvis text — uses on-device TTS (reliable
-  /// across web, iOS and Android) instead of the unreliable backend TTS.
+  /// Primary speak path for Jarvis text.
   Future<void> speak(String text) => speakText(text);
 
-  /// Speaks [text] and only completes once the utterance has finished
-  /// playing (TTS init configures awaitSpeakCompletion). Used by the live
-  /// conversation loop so it can listen again right after Jarvis stops
-  /// talking. Ignores the mute toggle on purpose? No — it respects it: if
-  /// TTS is disabled, returns immediately.
+  /// Speaks [text] and only completes once playback has actually finished
+  /// (or a safety timeout fires). Used by the live conversation loop so it
+  /// can listen again right after Jarvis stops talking. Respects the mute
+  /// toggle: if TTS is disabled, returns immediately.
   Future<void> speakAndWait(String text) async {
     if (!_ttsEnabled) return;
     final clean = text.trim();
     if (clean.isEmpty) return;
 
     try {
+      await stopSpeaking();
+
+      // 1) Try the backend's natural neural voice, awaiting completion.
+      final played = await _playBackendTts(clean, awaitCompletion: true);
+      if (played) return;
+
+      // 2) Fall back to on-device flutter_tts.
       if (!_ttsConfigured) {
         await _initTts();
       }
-      await stopSpeaking();
       await _flutterTts.setLanguage('de-DE');
-      // With awaitSpeakCompletion(true) this resolves when speaking ends.
-      await _flutterTts.speak(clean);
+      // With awaitSpeakCompletion(true) this resolves when speaking ends,
+      // but guard with a safety timeout so the loop can never stall.
+      await _flutterTts.speak(clean).timeout(
+            _speakSafetyTimeout(clean),
+            onTimeout: () {},
+          );
     } catch (e) {
       debugPrint('speakAndWait error: $e');
     }

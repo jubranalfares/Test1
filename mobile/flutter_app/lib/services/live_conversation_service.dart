@@ -190,12 +190,26 @@ class LiveConversationService extends ChangeNotifier {
 
   Future<void> _handleUserPhrase(String phrase) async {
     _partialText = '';
+
+    // Build conversation history from prior turns (BEFORE adding the current
+    // user phrase) so the backend remembers the context. Keep the last 12.
+    final priorHistory = _transcript
+        .map((t) => {
+              'role': t.isUser ? 'user' : 'assistant',
+              'content': t.text,
+            })
+        .toList();
+    final trimmedHistory = priorHistory.length > 12
+        ? priorHistory.sublist(priorHistory.length - 12)
+        : priorHistory;
+
     _addTurn(phrase, isUser: true);
     _setState(LiveConversationState.thinking);
 
     String replyText;
     try {
-      final response = await _apiService.chat(phrase);
+      final response =
+          await _apiService.chat(phrase, history: trimmedHistory);
       replyText = response['response']?.toString() ??
           response['message']?.toString() ??
           response['text']?.toString() ??
@@ -210,11 +224,23 @@ class LiveConversationService extends ChangeNotifier {
 
     _addTurn(replyText, isUser: false);
     _setState(LiveConversationState.speaking);
-    await _voiceService.speakAndWait(replyText);
+
+    // Speak the reply. Even if speaking throws, the loop must continue to
+    // listening (speakAndWait already has a safety timeout so it can't hang).
+    try {
+      await _voiceService.speakAndWait(replyText);
+    } catch (e) {
+      debugPrint('Live speak error: $e');
+    }
 
     if (_stopped) return;
 
-    // Continue the conversation: listen again.
+    // Small delay to let the mic settle before re-listening.
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+
+    if (_stopped) return;
+
+    // Continue the conversation: always listen again.
     await _listenLoop();
   }
 
