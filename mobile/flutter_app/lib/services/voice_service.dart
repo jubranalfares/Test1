@@ -13,6 +13,7 @@ import 'api_service.dart';
 class VoiceService extends ChangeNotifier {
   final ApiService _apiService;
   final AudioRecorder _recorder = AudioRecorder();
+  // Keep player around in case we want to play non-TTS audio in future.
   final AudioPlayer _player = AudioPlayer();
   final FlutterTts _flutterTts = FlutterTts();
 
@@ -45,12 +46,45 @@ class VoiceService extends ChangeNotifier {
       await _flutterTts.setSpeechRate(0.5);
       await _flutterTts.setPitch(1.0);
       await _flutterTts.setVolume(1.0);
-      // Make speak() futures complete only when the utterance is done.
-      // Required for the live conversation loop, which must wait for Jarvis
-      // to finish speaking before it starts listening again.
+
+      // On native iOS/Android, try to pick a high-quality German voice.
+      // iOS ships "Helena" (enhanced) and "Anna" as German neural voices.
+      if (!kIsWeb) {
+        try {
+          final voices = await _flutterTts.getVoices;
+          if (voices is List) {
+            const preferred = ['Helena', 'Anna', 'Petra', 'Yannick'];
+            for (final name in preferred) {
+              final match = voices.firstWhere(
+                (v) =>
+                    v is Map &&
+                    (v['name'] as String?)
+                            ?.toLowerCase()
+                            .contains(name.toLowerCase()) ==
+                        true,
+                orElse: () => null,
+              );
+              if (match != null) {
+                await _flutterTts.setVoice({
+                  'name': match['name'] as String,
+                  'locale': 'de-DE',
+                });
+                debugPrint('TTS voice: ${match['name']}');
+                break;
+              }
+            }
+          }
+        } catch (e) {
+          debugPrint('TTS voice selection skipped: $e');
+        }
+      }
+
+      // speak() futures resolve when the utterance ends — needed by the
+      // live conversation loop so it can start listening again right after.
       try {
         await _flutterTts.awaitSpeakCompletion(true);
       } catch (_) {}
+
       _flutterTts.setStartHandler(() {
         _isPlaying = true;
         notifyListeners();
@@ -231,26 +265,16 @@ class VoiceService extends ChangeNotifier {
     }
   }
 
-  /// Speaks [text] aloud. Prefers the backend's natural neural voice and
-  /// falls back to the on-device German TTS engine when the backend has no
-  /// audio. Stops any current speech first. Does nothing if TTS is muted.
+  /// Speaks [text] using the on-device TTS engine (iOS neural voice / Android
+  /// TTS). Stops any ongoing speech first. Silent when TTS is muted.
   Future<void> speakText(String text) async {
     if (!_ttsEnabled) return;
     final clean = text.trim();
     if (clean.isEmpty) return;
 
     try {
-      // Stop anything currently playing/speaking.
       await stopSpeaking();
-
-      // 1) Try the backend's natural neural voice.
-      final played = await _playBackendTts(clean, awaitCompletion: false);
-      if (played) return;
-
-      // 2) Fall back to on-device flutter_tts.
-      if (!_ttsConfigured) {
-        await _initTts();
-      }
+      if (!_ttsConfigured) await _initTts();
       await _flutterTts.setLanguage('de-DE');
       await _flutterTts.speak(clean);
     } catch (e) {
@@ -258,13 +282,12 @@ class VoiceService extends ChangeNotifier {
     }
   }
 
-  /// Primary speak path for Jarvis text.
+  /// Primary speak path for Jarvis replies.
   Future<void> speak(String text) => speakText(text);
 
-  /// Speaks [text] and only completes once playback has actually finished
-  /// (or a safety timeout fires). Used by the live conversation loop so it
-  /// can listen again right after Jarvis stops talking. Respects the mute
-  /// toggle: if TTS is disabled, returns immediately.
+  /// Speaks [text] and waits until playback finishes (or a safety timeout
+  /// fires). The live conversation loop calls this so it can start listening
+  /// again the moment Jarvis stops talking. Silent when TTS is muted.
   Future<void> speakAndWait(String text) async {
     if (!_ttsEnabled) return;
     final clean = text.trim();
@@ -272,18 +295,10 @@ class VoiceService extends ChangeNotifier {
 
     try {
       await stopSpeaking();
-
-      // 1) Try the backend's natural neural voice, awaiting completion.
-      final played = await _playBackendTts(clean, awaitCompletion: true);
-      if (played) return;
-
-      // 2) Fall back to on-device flutter_tts.
-      if (!_ttsConfigured) {
-        await _initTts();
-      }
+      if (!_ttsConfigured) await _initTts();
       await _flutterTts.setLanguage('de-DE');
-      // With awaitSpeakCompletion(true) this resolves when speaking ends,
-      // but guard with a safety timeout so the loop can never stall.
+      // awaitSpeakCompletion(true) makes speak() resolve when done.
+      // The safety timeout prevents a stall if the completion never fires.
       await _flutterTts.speak(clean).timeout(
             _speakSafetyTimeout(clean),
             onTimeout: () {},
