@@ -160,10 +160,13 @@ ABSOLUTE REGELN (immer befolgen):
 # LLM backends
 # ---------------------------------------------------------------------------
 async def chat_ollama(messages: list, model: str = None) -> Optional[str]:
-    """Try Ollama local LLM. Returns text or None on failure."""
+    """Try Ollama local LLM. Returns text or None on failure.
+    Short timeout so that when Groq is the intended primary, a missing/slow
+    Ollama fails fast instead of making the user wait a full minute."""
     model = model or OLLAMA_MODEL
+    timeout = float(os.getenv("OLLAMA_TIMEOUT", "20"))
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.post(
                 f"{OLLAMA_URL}/api/chat",
                 json={
@@ -321,8 +324,10 @@ async def voice_stt(audio: UploadFile = File(...)):
     return {"text": text, "language": language, "duration_ms": duration_ms}
 
 
-TTS_VOICE = os.getenv("TTS_VOICE", "de-DE-KillianNeural")
-TTS_RATE = os.getenv("TTS_RATE", "+12%")
+# SeraphinaMultilingual is Edge-TTS's most natural-sounding German voice.
+# Override via TTS_VOICE in .env (e.g. de-DE-KatjaNeural, de-DE-ConradNeural).
+TTS_VOICE = os.getenv("TTS_VOICE", "de-DE-SeraphinaMultilingualNeural")
+TTS_RATE = os.getenv("TTS_RATE", "+0%")
 
 
 @app.post("/voice/tts")
