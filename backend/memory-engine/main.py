@@ -560,23 +560,19 @@ async def get_opening():
             [f"  Nutzer: {r['user_message'][:120]}" for r in reversed(recent)]
         )
 
-    system_prompt = f"""Du bist Jarvis, der persönliche KI-Assistent des Nutzers. Der Nutzer hat gerade die App geöffnet.
-Begrüße ihn von dir aus mit EINER kurzen, natürlichen Eröffnungsnachricht (1-2 Sätze), passend zur Tageszeit ({tageszeit}, {local_datetime_str()}).
+    system_prompt = f"""Du bist Jarvis. Der Nutzer hat die App geöffnet ({tageszeit}). Begrüße ihn mit EINEM einzigen, kurzen Satz.
 
 Was du über den Nutzer weißt:
 {facts_text}
 
-Dauerhafte Anweisungen des Nutzers (diese IMMER befolgen):
+Dauerhafte Anweisungen des Nutzers:
 {rules_text}
 
-{recent_text}
-
-Regeln:
-- Antworte ausschließlich auf Deutsch.
-- Sei warmherzig und kurz, kein langes Gerede.
-- Befolge die dauerhaften Anweisungen des Nutzers, falls vorhanden (z.B. wenn er morgens nach dem Schlaf gefragt werden möchte).
-- Wenn keine besondere Anweisung gilt, begrüße passend zur Tageszeit und frage offen, was ansteht.
-- Erfinde keine Termine oder Fakten, die du nicht kennst."""
+ABSOLUTE REGELN:
+- Nur Deutsch. NUR EIN kurzer Satz (max. 12 Wörter). Keine zweite Frage anhängen.
+- Erfinde NICHTS: keine Orte, keine Zahlen, keine Termine, keine Spiele. Nutze nur, was oben steht.
+- Befolge die dauerhaften Anweisungen, falls vorhanden.
+- Gib NUR den Begrüßungssatz aus, sonst nichts. Keine Erklärungen über dich selbst."""
 
     message = await call_ai_chat("Öffne das Gespräch", system_prompt=system_prompt)
 

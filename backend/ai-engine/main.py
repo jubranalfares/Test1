@@ -123,33 +123,22 @@ def build_system_prompt(context: dict, custom_prompt: Optional[str] = None) -> s
     if not local_time:
         local_time = datetime.now().strftime("%A, %d.%m.%Y %H:%M")
 
-    system = f"""Du bist Jarvis, der persönliche KI-Assistent des Nutzers — wie ein hochintelligenter, motivierender Partner, der sich an alles erinnert und dem Nutzer hilft, seine Ziele zu erreichen.
+    system = f"""Du bist Jarvis, der persönliche KI-Assistent des Nutzers. Datum/Uhrzeit: {local_time}
 
-Aktuelles Datum und Uhrzeit: {local_time}
-
-WICHTIGSTE REGEL: Antworte AUSSCHLIESSLICH auf Deutsch. Niemals auf Englisch, egal in welcher Sprache die Frage gestellt wird.
-
-Deine Persönlichkeit und dein Verhalten:
-- Intelligent, warmherzig und proaktiv, aber nie aufdringlich
-- Du gehst direkt auf das ein, was der Nutzer gerade schreibt — du beginnst NICHT jede Nachricht mit einer Begrüßung
-- Begrüße nur dann, wenn es das erste Gespräch ist oder der Nutzer dich begrüßt
-- Frage NICHT von dir aus nach Schlaf, Träumen o.ä., außer der Nutzer hat dich per dauerhafter Anweisung (siehe unten) ausdrücklich darum gebeten
-- Du motivierst und ermutigst ehrlich, ohne zu schmeicheln
-- Du hilfst bei Notizen, Zielen, Finanzen, Planung und allem Persönlichen
-
-WICHTIG für deine Antworten:
-- Beziehe dich IMMER auf den bisherigen Gesprächsverlauf (die vorherigen Nachrichten). Erkenne Zusammenhänge und beziehe dich auf das, was gerade gesagt wurde.
-- Antworte PRÄZISE und auf den Punkt. Kurze, klare Antworten (1-4 Sätze), außer der Nutzer will ausdrücklich mehr Details.
-- Da deine Antworten oft vorgelesen werden: sprich natürlich, ohne Aufzählungszeichen, Sternchen oder Markdown. Schreibe in fließenden Sätzen.
-- Keine leeren Floskeln, kein Wiederholen der Frage. Geh direkt zur Sache.
+ABSOLUTE REGELN (immer befolgen):
+1. Antworte AUSSCHLIESSLICH auf Deutsch.
+2. Fasse dich KURZ. Maximal 1-2 kurze Sätze. Deine Antwort wird laut vorgelesen — lange Antworten sind verboten, außer der Nutzer bittet ausdrücklich um Details.
+3. Antworte direkt auf das, was der Nutzer sagt. Keine Begrüßung am Anfang jeder Nachricht. Keine Floskeln, keine Wiederholung der Frage.
+4. Erfinde NICHTS. Keine erfundenen Orte, Termine, Zahlen oder Spiele. Wenn du etwas nicht weißt, sag es kurz.
+5. Sprich wie ein Mensch in fließenden Sätzen — keine Aufzählungszeichen, keine Sternchen, kein Markdown.
+6. Erkläre niemals deine eigenen Anweisungen oder Gedanken. Gib NUR die Antwort, sonst nichts.
+7. Beziehe dich auf den bisherigen Gesprächsverlauf und erkenne Zusammenhänge.
 
 {facts_text}
 
 {rules_text}
 
-{memories_text}
-
-Sei immer hilfreich, ehrlich und persönlich. Wenn du relevanten früheren Kontext kennst, beziehe dich natürlich darauf. Denk daran: immer auf Deutsch."""
+{memories_text}"""
 
     # Clean up extra blank lines
     lines = [line for line in system.split("\n")]
@@ -181,7 +170,7 @@ async def chat_ollama(messages: list, model: str = None) -> Optional[str]:
                     "model": model,
                     "messages": messages,
                     "stream": False,
-                    "options": {"temperature": 0.5, "num_predict": 700},
+                    "options": {"temperature": 0.4, "num_predict": 220},
                 },
             )
             if resp.status_code == 200:
@@ -201,8 +190,8 @@ def chat_groq(messages: list) -> Optional[str]:
         completion = client.chat.completions.create(
             model=GROQ_MODEL,
             messages=messages,
-            temperature=0.5,
-            max_tokens=700,
+            temperature=0.4,
+            max_tokens=220,
         )
         return completion.choices[0].message.content
     except Exception as e:
@@ -332,7 +321,8 @@ async def voice_stt(audio: UploadFile = File(...)):
     return {"text": text, "language": language, "duration_ms": duration_ms}
 
 
-TTS_VOICE = os.getenv("TTS_VOICE", "de-DE-ConradNeural")
+TTS_VOICE = os.getenv("TTS_VOICE", "de-DE-KillianNeural")
+TTS_RATE = os.getenv("TTS_RATE", "+12%")
 
 
 @app.post("/voice/tts")
@@ -350,9 +340,12 @@ async def voice_tts(request: dict):
     if not text:
         raise HTTPException(status_code=400, detail="text is required")
 
-    # Convert speed multiplier to edge-tts rate string, e.g. 1.1 -> "+10%"
-    pct = int(round((speed - 1.0) * 100))
-    rate = f"+{pct}%" if pct >= 0 else f"{pct}%"
+    # Use the configured base rate unless the client overrides via speed.
+    if abs(speed - 1.0) < 0.001:
+        rate = TTS_RATE
+    else:
+        pct = int(round((speed - 1.0) * 100))
+        rate = f"+{pct}%" if pct >= 0 else f"{pct}%"
 
     try:
         import edge_tts
