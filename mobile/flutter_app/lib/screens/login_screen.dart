@@ -19,7 +19,7 @@ class _LoginScreenState extends State<LoginScreen>
   final _passwordFocusNode = FocusNode();
 
   bool _obscurePassword = true;
-  bool _showAdvanced = false;
+  bool _showAdvanced = true;
   late AnimationController _glowController;
 
   @override
@@ -247,7 +247,7 @@ class _LoginScreenState extends State<LoginScreen>
 
                         const SizedBox(height: 24),
 
-                        // Advanced settings toggle
+                        // Server URL toggle
                         GestureDetector(
                           onTap: () =>
                               setState(() => _showAdvanced = !_showAdvanced),
@@ -255,7 +255,7 @@ class _LoginScreenState extends State<LoginScreen>
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               const Text(
-                                'Erweiterte Einstellungen',
+                                'Server-Verbindung',
                                 style: TextStyle(
                                   color: AppColors.textSecondary,
                                   fontSize: 13,
@@ -273,7 +273,7 @@ class _LoginScreenState extends State<LoginScreen>
                           ),
                         ).animate(delay: 600.ms).fade(duration: 500.ms),
 
-                        // Server URL (collapsible)
+                        // Server URL (collapsible, open by default)
                         AnimatedSize(
                           duration: const Duration(milliseconds: 300),
                           curve: Curves.easeInOut,
@@ -310,6 +310,27 @@ class _LoginScreenState extends State<LoginScreen>
                                                 v.isEmpty)
                                             ? 'Server-Adresse erforderlich'
                                             : null,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.phone_iphone_rounded,
+                                            size: 14,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              'iPhone/Handy: "localhost" durch die IP deines PCs ersetzen (z.B. http://192.168.1.5:8080)',
+                                              style: const TextStyle(
+                                                color: AppColors.textSecondary,
+                                                fontSize: 11,
+                                                height: 1.4,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),

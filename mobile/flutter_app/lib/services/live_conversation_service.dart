@@ -192,8 +192,8 @@ class LiveConversationService extends ChangeNotifier {
       await _speech.listen(
         localeId: _localeId,
         onResult: _onSpeechResult,
-        listenFor: const Duration(seconds: 30),
-        pauseFor: const Duration(seconds: 3),
+        listenFor: const Duration(seconds: 25),
+        pauseFor: const Duration(milliseconds: 1800),
         partialResults: true,
         cancelOnError: false,
         listenMode: stt.ListenMode.dictation,
