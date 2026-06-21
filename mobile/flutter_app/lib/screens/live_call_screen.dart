@@ -45,6 +45,8 @@ class _LiveCallScreenState extends State<LiveCallScreen> {
       case LiveConversationState.greeting:
       case LiveConversationState.speaking:
         return 'Jarvis spricht…';
+      case LiveConversationState.waitingForTap:
+        return 'Tippe auf das Mikrofon zum Sprechen';
       case LiveConversationState.listening:
         return 'Ich höre zu…';
       case LiveConversationState.thinking:
@@ -101,7 +103,22 @@ class _LiveCallScreenState extends State<LiveCallScreen> {
                   ),
                 ).animate(key: ValueKey(state)).fade(duration: 300.ms),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
+
+                // Mode switch: tap-to-talk vs hands-free.
+                _ModeToggle(service: service),
+
+                const SizedBox(height: 12),
+
+                // Big tap-to-talk button (only in push-to-talk while waiting).
+                if (service.mode == LiveMode.pushToTalk &&
+                    state == LiveConversationState.waitingForTap)
+                  _TapToTalkButton(
+                    onTap: () =>
+                        context.read<LiveConversationService>().startListeningOnce(),
+                  ),
+
+                const SizedBox(height: 12),
 
                 // Live transcript / partial recognition.
                 Expanded(
@@ -466,6 +483,102 @@ class _CircleControl extends StatelessWidget {
         child: Icon(icon, color: iconColor, size: size * 0.42),
       ),
     );
+  }
+}
+
+/// Segmented toggle between push-to-talk and hands-free modes.
+class _ModeToggle extends StatelessWidget {
+  final LiveConversationService service;
+
+  const _ModeToggle({required this.service});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget segment(String label, IconData icon, LiveMode mode) {
+      final selected = service.mode == mode;
+      return GestureDetector(
+        onTap: () => context.read<LiveConversationService>().setMode(mode),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon,
+                  size: 16,
+                  color: selected
+                      ? Colors.white
+                      : AppColors.textSecondary),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected ? Colors.white : AppColors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          segment('Tippen', Icons.touch_app_rounded, LiveMode.pushToTalk),
+          segment('Freihändig', Icons.graphic_eq_rounded, LiveMode.handsFree),
+        ],
+      ),
+    );
+  }
+}
+
+/// Large mic button for push-to-talk: tap to start speaking one phrase.
+class _TapToTalkButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _TapToTalkButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 84,
+        height: 84,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: AppColors.gradientPurpleCyan,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.5),
+              blurRadius: 24,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: const Icon(Icons.mic_rounded, color: Colors.white, size: 38),
+      ),
+    )
+        .animate(onPlay: (c) => c.repeat(reverse: true))
+        .scale(
+          begin: const Offset(1.0, 1.0),
+          end: const Offset(1.06, 1.06),
+          duration: 900.ms,
+          curve: Curves.easeInOut,
+        );
   }
 }
 

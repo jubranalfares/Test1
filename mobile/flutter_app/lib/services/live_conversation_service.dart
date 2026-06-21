@@ -5,15 +5,23 @@ import 'package:speech_to_text/speech_recognition_result.dart';
 import 'api_service.dart';
 import 'voice_service.dart';
 
-/// The phases of a live, hands-free voice conversation with Jarvis.
+/// The phases of a live voice conversation with Jarvis.
 enum LiveConversationState {
   idle,
   greeting,
+  waitingForTap,
   listening,
   thinking,
   speaking,
   ended,
 }
+
+/// How the user talks to Jarvis.
+/// - [pushToTalk]: the mic only opens when the user taps. No echo. Reliable on
+///   laptops with open speakers. Default.
+/// - [handsFree]: continuous loop; Jarvis listens again automatically after
+///   speaking. Best with headphones / on phone (built-in echo cancellation).
+enum LiveMode { pushToTalk, handsFree }
 
 /// A single turn in the live conversation transcript.
 class ConversationTurn {
@@ -42,6 +50,7 @@ class LiveConversationService extends ChangeNotifier {
       'Hallo! Schön dich zu sehen. Was kann ich für dich tun?';
 
   LiveConversationState _state = LiveConversationState.idle;
+  LiveMode _mode = LiveMode.pushToTalk;
   final List<ConversationTurn> _transcript = [];
   String _partialText = '';
   bool _speechAvailable = false;
@@ -54,9 +63,23 @@ class LiveConversationService extends ChangeNotifier {
   LiveConversationService(this._apiService, this._voiceService);
 
   LiveConversationState get state => _state;
+  LiveMode get mode => _mode;
   List<ConversationTurn> get transcript => List.unmodifiable(_transcript);
   String get partialText => _partialText;
   String? get lastError => _lastError;
+
+  /// Switch between push-to-talk and hands-free. Safe to call any time.
+  void setMode(LiveMode m) {
+    if (_mode == m) return;
+    _mode = m;
+    notifyListeners();
+    // If we switch to hands-free while waiting for a tap, start listening.
+    if (m == LiveMode.handsFree &&
+        _state == LiveConversationState.waitingForTap &&
+        !_stopped) {
+      _listenLoop();
+    }
+  }
 
   bool get isActive =>
       _state != LiveConversationState.idle &&
@@ -128,6 +151,32 @@ class LiveConversationService extends ChangeNotifier {
       return;
     }
 
+    _afterTurn();
+  }
+
+  /// Decide what happens after Jarvis finishes speaking (or after silence):
+  /// push-to-talk waits for the user to tap; hands-free listens again.
+  void _afterTurn() {
+    if (_stopped) return;
+    if (_mode == LiveMode.handsFree) {
+      _listenLoop();
+    } else {
+      _partialText = '';
+      _setState(LiveConversationState.waitingForTap);
+    }
+  }
+
+  /// Called from the UI when the user taps the mic in push-to-talk mode.
+  /// Opens the mic for a single phrase.
+  Future<void> startListeningOnce() async {
+    if (_stopped) return;
+    if (!_speechAvailable) return;
+    if (_state == LiveConversationState.listening ||
+        _state == LiveConversationState.thinking ||
+        _state == LiveConversationState.speaking ||
+        _state == LiveConversationState.greeting) {
+      return;
+    }
     await _listenLoop();
   }
 
@@ -180,8 +229,9 @@ class LiveConversationService extends ChangeNotifier {
     if (_stopped) return;
 
     if (phrase.isEmpty) {
-      // Silence / timeout — just listen again.
-      if (!_stopped) await _listenLoop();
+      // Silence / timeout — in hands-free, listen again; in push-to-talk,
+      // wait for the user to tap again (mic stays closed → no echo).
+      _afterTurn();
       return;
     }
 
@@ -235,13 +285,14 @@ class LiveConversationService extends ChangeNotifier {
 
     if (_stopped) return;
 
-    // Small delay to let the mic settle before re-listening.
-    await Future<void>.delayed(const Duration(milliseconds: 300));
+    // Small delay to let the speaker audio fully settle before the mic could
+    // reopen (extra protection against the mic hearing Jarvis = echo).
+    await Future<void>.delayed(const Duration(milliseconds: 500));
 
     if (_stopped) return;
 
-    // Continue the conversation: always listen again.
-    await _listenLoop();
+    // Continue: hands-free listens again automatically; push-to-talk waits.
+    _afterTurn();
   }
 
   /// Ends the conversation: stops listening and any ongoing speech.
