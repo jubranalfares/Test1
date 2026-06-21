@@ -265,8 +265,13 @@ class VoiceService extends ChangeNotifier {
     }
   }
 
-  /// Speaks [text] using the on-device TTS engine (iOS neural voice / Android
-  /// TTS). Stops any ongoing speech first. Silent when TTS is muted.
+  /// Speaks [text] aloud. Picks the right engine per platform:
+  /// - On web (mobile Safari): the browser's own speech synthesis is broken
+  ///   on iOS, so we MUST use the backend's neural voice (real audio bytes
+  ///   that Safari can play). flutter_tts is only the last-resort fallback.
+  /// - On native iOS/Android: flutter_tts uses the excellent on-device voice
+  ///   (iOS = Siri engine), so we use it directly.
+  /// Silent when TTS is muted.
   Future<void> speakText(String text) async {
     if (!_ttsEnabled) return;
     final clean = text.trim();
@@ -274,6 +279,12 @@ class VoiceService extends ChangeNotifier {
 
     try {
       await stopSpeaking();
+
+      if (kIsWeb) {
+        final played = await _playBackendTts(clean, awaitCompletion: false);
+        if (played) return;
+      }
+
       if (!_ttsConfigured) await _initTts();
       await _flutterTts.setLanguage('de-DE');
       await _flutterTts.speak(clean);
@@ -295,6 +306,13 @@ class VoiceService extends ChangeNotifier {
 
     try {
       await stopSpeaking();
+
+      // On web, the backend voice is the only reliable one in Safari.
+      if (kIsWeb) {
+        final played = await _playBackendTts(clean, awaitCompletion: true);
+        if (played) return;
+      }
+
       if (!_ttsConfigured) await _initTts();
       await _flutterTts.setLanguage('de-DE');
       // awaitSpeakCompletion(true) makes speak() resolve when done.
