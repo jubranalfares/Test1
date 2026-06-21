@@ -232,7 +232,7 @@ class _FinanceScreenState extends State<FinanceScreen>
 
               // Category dropdown
               DropdownButtonFormField<TransactionCategory>(
-                value: selectedCategory,
+                initialValue: selectedCategory,
                 dropdownColor: AppColors.surface,
                 style: const TextStyle(color: AppColors.textPrimary),
                 decoration: const InputDecoration(labelText: 'Kategorie'),
@@ -292,6 +292,7 @@ class _FinanceScreenState extends State<FinanceScreen>
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Finanzen')),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'fab_finance',
         onPressed: _addTransaction,
         backgroundColor: AppColors.primary,
         child: const Icon(Icons.add_rounded, color: Colors.white),
@@ -335,7 +336,7 @@ class _FinanceScreenState extends State<FinanceScreen>
                   labelColor: AppColors.primary,
                   unselectedLabelColor: AppColors.textSecondary,
                   indicator: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.15),
+                    color: AppColors.primary.withValues(alpha:0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   indicatorSize: TabBarIndicatorSize.tab,
@@ -398,8 +399,8 @@ class _BalanceCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isPositive
-              ? AppColors.success.withOpacity(0.3)
-              : AppColors.error.withOpacity(0.3),
+              ? AppColors.success.withValues(alpha:0.3)
+              : AppColors.error.withValues(alpha:0.3),
         ),
       ),
       child: Column(
@@ -497,7 +498,7 @@ class _MiniStat extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
+            color: color.withValues(alpha:0.15),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, color: color, size: 14),
@@ -571,7 +572,7 @@ class _BarChartWidget extends StatelessWidget {
                   show: true,
                   drawVerticalLine: false,
                   horizontalInterval: max > 0 ? max / 4 : 25,
-                  getDrawingHorizontalLine: (v) => FlLine(
+                  getDrawingHorizontalLine: (v) => const FlLine(
                     color: AppColors.cardBorder,
                     strokeWidth: 1,
                   ),
@@ -777,7 +778,7 @@ class _TypeToggle extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.15) : AppColors.surface,
+          color: isSelected ? color.withValues(alpha:0.15) : AppColors.surface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isSelected ? color : AppColors.cardBorder,

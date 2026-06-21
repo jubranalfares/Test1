@@ -1,8 +1,21 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
+
+String _defaultServerUrl() {
+  if (kIsWeb) {
+    try {
+      final host = Uri.base.host;
+      if (host.isNotEmpty && host != 'localhost' && host != '127.0.0.1') {
+        return 'http://$host:8080';
+      }
+    } catch (_) {}
+  }
+  return 'http://localhost:8080';
+}
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,7 +28,7 @@ class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _passwordController = TextEditingController();
-  final _urlController = TextEditingController(text: 'http://localhost:8080');
+  final _urlController = TextEditingController(text: _defaultServerUrl());
   final _passwordFocusNode = FocusNode();
 
   bool _obscurePassword = true;
@@ -30,11 +43,18 @@ class _LoginScreenState extends State<LoginScreen>
       duration: const Duration(milliseconds: 2000),
     )..repeat(reverse: true);
 
-    // Pre-fill URL from saved settings
+    // Pre-fill URL: use auto-detected network IP when on non-localhost,
+    // otherwise fall back to whatever was saved in settings.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final auth = context.read<AuthProvider>();
-      if (auth.serverUrl.isNotEmpty) {
-        _urlController.text = auth.serverUrl;
+      final auto = _defaultServerUrl();
+      if (auto != 'http://localhost:8080') {
+        // Accessed via a real IP (e.g. from iPhone) — always prefer the auto URL.
+        _urlController.text = auto;
+      } else {
+        final auth = context.read<AuthProvider>();
+        if (auth.serverUrl.isNotEmpty) {
+          _urlController.text = auth.serverUrl;
+        }
       }
     });
   }
@@ -106,7 +126,7 @@ class _LoginScreenState extends State<LoginScreen>
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: AppColors.primary.withOpacity(
+                                      color: AppColors.primary.withValues(alpha:
                                         0.2 + 0.3 * _glowController.value,
                                       ),
                                       blurRadius: 30,
@@ -206,10 +226,10 @@ class _LoginScreenState extends State<LoginScreen>
                               vertical: 12,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.error.withOpacity(0.1),
+                              color: AppColors.error.withValues(alpha:0.1),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: AppColors.error.withOpacity(0.3),
+                                color: AppColors.error.withValues(alpha:0.3),
                               ),
                             ),
                             child: Row(
@@ -312,18 +332,18 @@ class _LoginScreenState extends State<LoginScreen>
                                             : null,
                                       ),
                                       const SizedBox(height: 8),
-                                      Row(
+                                      const Row(
                                         children: [
-                                          const Icon(
+                                          Icon(
                                             Icons.phone_iphone_rounded,
                                             size: 14,
                                             color: AppColors.textSecondary,
                                           ),
-                                          const SizedBox(width: 6),
+                                          SizedBox(width: 6),
                                           Expanded(
                                             child: Text(
                                               'iPhone/Handy: "localhost" durch die IP deines PCs ersetzen (z.B. http://192.168.1.5:8080)',
-                                              style: const TextStyle(
+                                              style: TextStyle(
                                                 color: AppColors.textSecondary,
                                                 fontSize: 11,
                                                 height: 1.4,
@@ -404,7 +424,7 @@ class _GradientButtonState extends State<_GradientButton>
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primary.withOpacity(
+                  color: AppColors.primary.withValues(alpha:
                     0.3 + 0.25 * _glowCtrl.value,
                   ),
                   blurRadius: 20,
@@ -450,7 +470,7 @@ class _DotGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF6C63FF).withOpacity(0.08)
+      ..color = const Color(0xFF6C63FF).withValues(alpha:0.08)
       ..style = PaintingStyle.fill;
 
     const spacing = 30.0;

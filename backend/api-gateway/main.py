@@ -174,19 +174,22 @@ async def chat(
             logger.error(f"ai-engine chat failed: {e}")
             raise HTTPException(status_code=502, detail=f"AI engine error: {str(e)}")
 
-        # Step 3: Store in memory-engine
-        try:
-            await client.post(
-                f"{MEMORY_ENGINE_URL}/remember",
-                json={
-                    "user_message": message,
-                    "assistant_message": ai_data.get("response", ""),
-                    "timestamp": datetime.utcnow().isoformat(),
-                },
-            )
-        except Exception as e:
-            logger.warning(f"memory-engine remember failed: {e}")
+        # Step 3: Store in memory-engine (fire-and-forget — don't block the response)
+        async def _remember():
+            try:
+                async with get_client() as c:
+                    await c.post(
+                        f"{MEMORY_ENGINE_URL}/remember",
+                        json={
+                            "user_message": message,
+                            "assistant_message": ai_data.get("response", ""),
+                            "timestamp": datetime.utcnow().isoformat(),
+                        },
+                    )
+            except Exception as e:
+                logger.warning(f"memory-engine remember failed: {e}")
 
+        asyncio.create_task(_remember())
         return ai_data
 
 

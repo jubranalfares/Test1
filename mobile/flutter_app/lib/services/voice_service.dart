@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
@@ -266,11 +265,8 @@ class VoiceService extends ChangeNotifier {
   }
 
   /// Speaks [text] aloud. Picks the right engine per platform:
-  /// - On web (mobile Safari): the browser's own speech synthesis is broken
-  ///   on iOS, so we MUST use the backend's neural voice (real audio bytes
-  ///   that Safari can play). flutter_tts is only the last-resort fallback.
-  /// - On native iOS/Android: flutter_tts uses the excellent on-device voice
-  ///   (iOS = Siri engine), so we use it directly.
+  /// - On web (mobile Safari): tries backend neural voice first, falls back to flutter_tts.
+  /// - On native iOS/Android: flutter_tts uses the on-device voice directly.
   /// Silent when TTS is muted.
   Future<void> speakText(String text) async {
     if (!_ttsEnabled) return;
@@ -341,11 +337,13 @@ class VoiceService extends ChangeNotifier {
     notifyListeners();
   }
 
+  @override
   Future<void> dispose() async {
     try {
       await _recorder.dispose();
       await _player.dispose();
       await _flutterTts.stop();
     } catch (_) {}
+    super.dispose();
   }
 }

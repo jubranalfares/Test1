@@ -66,7 +66,7 @@ class _LiveCallScreenState extends State<LiveCallScreen> {
 
     return PopScope(
       canPop: true,
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, _) {
         if (didPop) {
           context.read<LiveConversationService>().stop();
         }
@@ -257,12 +257,12 @@ class _JarvisOrb extends StatelessWidget {
         gradient: orbGradient,
         boxShadow: [
           BoxShadow(
-            color: glow.withOpacity(0.55),
+            color: glow.withValues(alpha:0.55),
             blurRadius: 50,
             spreadRadius: 8,
           ),
           BoxShadow(
-            color: glow.withOpacity(0.3),
+            color: glow.withValues(alpha:0.3),
             blurRadius: 90,
             spreadRadius: 20,
           ),
@@ -321,7 +321,7 @@ class _JarvisOrb extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: AppColors.success.withOpacity(0.35 - i * 0.1),
+                    color: AppColors.success.withValues(alpha:0.35 - i * 0.1),
                     width: 2,
                   ),
                 ),
@@ -349,7 +349,7 @@ class _JarvisOrb extends StatelessWidget {
                 strokeWidth: 3,
                 valueColor: const AlwaysStoppedAnimation<Color>(
                     AppColors.secondary),
-                backgroundColor: AppColors.cardBorder.withOpacity(0.3),
+                backgroundColor: AppColors.cardBorder.withValues(alpha:0.3),
               )
                   .animate(onPlay: (c) => c.repeat())
                   .rotate(duration: 1.2.seconds),
@@ -394,12 +394,12 @@ class _TranscriptView extends StatelessWidget {
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
                   color: turn.isUser
-                      ? AppColors.primary.withOpacity(0.18)
+                      ? AppColors.primary.withValues(alpha:0.18)
                       : AppColors.card,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: turn.isUser
-                        ? AppColors.primary.withOpacity(0.4)
+                        ? AppColors.primary.withValues(alpha:0.4)
                         : AppColors.cardBorder,
                   ),
                 ),
@@ -430,10 +430,10 @@ class _TranscriptView extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.08),
+                  color: AppColors.primary.withValues(alpha:0.08),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: AppColors.primary.withOpacity(0.25),
+                    color: AppColors.primary.withValues(alpha:0.25),
                   ),
                 ),
                 child: Text(
@@ -563,7 +563,7 @@ class _TapToTalkButton extends StatelessWidget {
           gradient: AppColors.gradientPurpleCyan,
           boxShadow: [
             BoxShadow(
-              color: AppColors.primary.withOpacity(0.5),
+              color: AppColors.primary.withValues(alpha:0.5),
               blurRadius: 24,
               spreadRadius: 2,
             ),
@@ -603,7 +603,7 @@ class _EndCallButton extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: AppColors.error.withOpacity(0.5),
+              color: AppColors.error.withValues(alpha:0.5),
               blurRadius: 20,
               spreadRadius: 2,
             ),

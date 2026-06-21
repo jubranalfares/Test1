@@ -192,11 +192,13 @@ class LiveConversationService extends ChangeNotifier {
       await _speech.listen(
         localeId: _localeId,
         onResult: _onSpeechResult,
-        listenFor: const Duration(seconds: 25),
-        pauseFor: const Duration(milliseconds: 1800),
-        partialResults: true,
-        cancelOnError: false,
-        listenMode: stt.ListenMode.dictation,
+        listenFor: const Duration(seconds: 30),
+        pauseFor: const Duration(seconds: 3),
+        listenOptions: stt.SpeechListenOptions(
+          partialResults: true,
+          cancelOnError: false,
+          listenMode: stt.ListenMode.dictation,
+        ),
       );
     } catch (e) {
       debugPrint('STT listen error: $e');

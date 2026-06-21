@@ -84,12 +84,12 @@ class _SplashScreenState extends State<SplashScreen>
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.primary.withOpacity(glow),
+                              color: AppColors.primary.withValues(alpha:glow),
                               blurRadius: 40,
                               spreadRadius: 8,
                             ),
                             BoxShadow(
-                              color: AppColors.secondary.withOpacity(glow * 0.5),
+                              color: AppColors.secondary.withValues(alpha:glow * 0.5),
                               blurRadius: 70,
                               spreadRadius: 15,
                             ),
@@ -122,7 +122,7 @@ class _SplashScreenState extends State<SplashScreen>
                   const SizedBox(height: 40),
 
                   // JARVIS title — letter by letter
-                  _AnimatedTitle(),
+                  const _AnimatedTitle(),
 
                   const SizedBox(height: 16),
 
@@ -210,7 +210,7 @@ class _GridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF6C63FF).withOpacity(0.04)
+      ..color = const Color(0xFF6C63FF).withValues(alpha:0.04)
       ..strokeWidth = 1;
 
     const spacing = 40.0;
@@ -224,7 +224,7 @@ class _GridPainter extends CustomPainter {
 
     // Dots at intersections
     final dotPaint = Paint()
-      ..color = const Color(0xFF6C63FF).withOpacity(0.12)
+      ..color = const Color(0xFF6C63FF).withValues(alpha:0.12)
       ..style = PaintingStyle.fill;
 
     for (double x = 0; x < size.width; x += spacing) {

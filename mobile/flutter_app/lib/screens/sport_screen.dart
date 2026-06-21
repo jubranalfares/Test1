@@ -170,7 +170,7 @@ class _SportScreenState extends State<SportScreen> {
                           horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? AppColors.primary.withOpacity(0.2)
+                            ? AppColors.primary.withValues(alpha:0.2)
                             : AppColors.surface,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
@@ -271,6 +271,7 @@ class _SportScreenState extends State<SportScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Sport')),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab_sport',
         onPressed: _logWorkout,
         backgroundColor: AppColors.primary,
         icon: const Icon(Icons.add_rounded, color: Colors.white),
@@ -291,13 +292,13 @@ class _SportScreenState extends State<SportScreen> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    AppColors.primary.withOpacity(0.12),
-                    AppColors.secondary.withOpacity(0.06),
+                    AppColors.primary.withValues(alpha:0.12),
+                    AppColors.secondary.withValues(alpha:0.06),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                    color: AppColors.primary.withOpacity(0.25)),
+                    color: AppColors.primary.withValues(alpha:0.25)),
               ),
               child: Row(
                 children: [
@@ -576,7 +577,7 @@ class _WeekCalendar extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: hasWorkout
-                          ? AppColors.primary.withOpacity(0.2)
+                          ? AppColors.primary.withValues(alpha:0.2)
                           : isToday
                               ? AppColors.cardBorder
                               : Colors.transparent,
@@ -651,7 +652,7 @@ class _WorkoutItem extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.15),
+              color: AppColors.primary.withValues(alpha:0.15),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(

@@ -68,9 +68,9 @@ class _VoiceButtonState extends State<VoiceButton>
             SizedBox(
               width: size,
               height: size,
-              child: CircularProgressIndicator(
+              child: const CircularProgressIndicator(
                 strokeWidth: 3,
-                valueColor: const AlwaysStoppedAnimation<Color>(AppColors.secondary),
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.secondary),
               )
                   .animate(onPlay: (c) => c.repeat())
                   .rotate(duration: 1.seconds),
@@ -78,8 +78,8 @@ class _VoiceButtonState extends State<VoiceButton>
             Container(
               width: size - 12,
               height: size - 12,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
                   colors: [AppColors.primary, AppColors.secondary],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -112,7 +112,7 @@ class _VoiceButtonState extends State<VoiceButton>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: Colors.red.withOpacity(0.3 - i * 0.08),
+                    color: Colors.red.withValues(alpha:0.3 - i * 0.08),
                     width: 2,
                   ),
                 ),
@@ -139,7 +139,7 @@ class _VoiceButtonState extends State<VoiceButton>
                 color: Colors.red.shade700,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.red.withOpacity(0.5),
+                    color: Colors.red.withValues(alpha:0.5),
                     blurRadius: 20,
                     spreadRadius: 4,
                   ),
@@ -177,12 +177,12 @@ class _VoiceButtonState extends State<VoiceButton>
           ),
           boxShadow: [
             BoxShadow(
-              color: AppColors.primary.withOpacity(0.4),
+              color: AppColors.primary.withValues(alpha:0.4),
               blurRadius: 20,
               spreadRadius: 2,
             ),
             BoxShadow(
-              color: AppColors.secondary.withOpacity(0.2),
+              color: AppColors.secondary.withValues(alpha:0.2),
               blurRadius: 40,
               spreadRadius: 4,
             ),

@@ -43,15 +43,13 @@ class AppTheme {
         primary: AppColors.primary,
         secondary: AppColors.secondary,
         surface: AppColors.surface,
-        background: AppColors.background,
         error: AppColors.error,
         onPrimary: AppColors.textPrimary,
         onSecondary: AppColors.background,
         onSurface: AppColors.textPrimary,
-        onBackground: AppColors.textPrimary,
         onError: AppColors.textPrimary,
         outline: AppColors.cardBorder,
-        surfaceVariant: AppColors.card,
+        surfaceContainerHighest: AppColors.card,
         onSurfaceVariant: AppColors.textSecondary,
       ),
       scaffoldBackgroundColor: AppColors.background,
@@ -141,7 +139,7 @@ class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.surface,
-        selectedColor: AppColors.primary.withOpacity(0.3),
+        selectedColor: AppColors.primary.withValues(alpha:0.3),
         labelStyle: const TextStyle(
           color: AppColors.textSecondary,
           fontSize: 12,
@@ -200,13 +198,13 @@ class AppTheme {
         circularTrackColor: AppColors.cardBorder,
       ),
       switchTheme: SwitchThemeData(
-        thumbColor: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) return AppColors.primary;
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return AppColors.primary;
           return AppColors.textSecondary;
         }),
-        trackColor: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
-            return AppColors.primary.withOpacity(0.3);
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return AppColors.primary.withValues(alpha:0.3);
           }
           return AppColors.cardBorder;
         }),

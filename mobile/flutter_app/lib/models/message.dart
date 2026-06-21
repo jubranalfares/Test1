@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 
 class Message {
   final String id;

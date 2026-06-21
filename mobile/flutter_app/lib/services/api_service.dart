@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -29,7 +28,12 @@ class ApiService extends ChangeNotifier {
   Future<void> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     _baseUrl = prefs.getString(_baseUrlKey) ?? _defaultBaseUrl;
-    _token = await _storage.read(key: _tokenKey) ?? '';
+    try {
+      _token = await _storage.read(key: _tokenKey) ?? '';
+    } catch (e) {
+      debugPrint('SecureStorage read error (non-fatal): $e');
+      _token = prefs.getString(_tokenKey) ?? '';
+    }
     notifyListeners();
   }
 
@@ -42,13 +46,30 @@ class ApiService extends ChangeNotifier {
 
   Future<void> _storeToken(String token) async {
     _token = token;
-    await _storage.write(key: _tokenKey, value: token);
+    try {
+      await _storage.write(key: _tokenKey, value: token);
+    } catch (e) {
+      debugPrint('SecureStorage write error (non-fatal): $e');
+      // Fallback: store in SharedPreferences (less secure but functional on web)
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_tokenKey, token);
+      } catch (_) {}
+    }
     notifyListeners();
   }
 
   Future<void> clearToken() async {
     _token = '';
-    await _storage.delete(key: _tokenKey);
+    try {
+      await _storage.delete(key: _tokenKey);
+    } catch (e) {
+      debugPrint('SecureStorage delete error (non-fatal): $e');
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_tokenKey);
+    } catch (_) {}
     notifyListeners();
   }
 
