@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../models/workout.dart';
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 
 class SportScreen extends StatefulWidget {
@@ -13,7 +15,13 @@ class SportScreen extends StatefulWidget {
 
 class _SportScreenState extends State<SportScreen> {
   List<Workout> _workouts = [];
-  final int _weeklyGoal = 5;
+  Map<String, dynamic> _stats = {};
+  bool _loading = true;
+
+  int get _weeklyGoal {
+    final g = (_stats['weekly_goal'] as num?)?.toInt() ?? 5;
+    return g > 0 ? g : 5;
+  }
 
   static const List<String> _motivationQuotes = [
     '„Streng dich an, denn niemand sonst wird es für dich tun."',
@@ -31,102 +39,63 @@ class _SportScreenState extends State<SportScreen> {
   @override
   void initState() {
     super.initState();
-    _loadSampleWorkouts();
+    _loadSport();
   }
 
-  void _loadSampleWorkouts() {
-    final now = DateTime.now();
-    _workouts = [
-      Workout(
-        id: '1',
-        type: WorkoutType.running,
-        durationMinutes: 35,
-        calories: 320,
-        date: now.subtract(const Duration(days: 1)),
-      ),
-      Workout(
-        id: '2',
-        type: WorkoutType.weightlifting,
-        durationMinutes: 55,
-        calories: 280,
-        date: now.subtract(const Duration(days: 2)),
-      ),
-      Workout(
-        id: '3',
-        type: WorkoutType.yoga,
-        durationMinutes: 40,
-        calories: 150,
-        date: now.subtract(const Duration(days: 3)),
-      ),
-      Workout(
-        id: '4',
-        type: WorkoutType.cycling,
-        durationMinutes: 45,
-        calories: 380,
-        date: now.subtract(const Duration(days: 5)),
-      ),
-      Workout(
-        id: '5',
-        type: WorkoutType.hiit,
-        durationMinutes: 25,
-        calories: 290,
-        date: now.subtract(const Duration(days: 8)),
-      ),
-      Workout(
-        id: '6',
-        type: WorkoutType.running,
-        durationMinutes: 30,
-        calories: 280,
-        date: now.subtract(const Duration(days: 9)),
-      ),
-    ];
-  }
-
-  List<Workout> get _thisWeekWorkouts {
-    final weekStart = DateTime.now().subtract(
-      Duration(days: DateTime.now().weekday - 1),
-    );
-    return _workouts
-        .where((w) => w.date.isAfter(weekStart.subtract(const Duration(days: 1))))
-        .toList();
-  }
-
-  int get _thisMonthTotal {
-    final monthStart = DateTime(DateTime.now().year, DateTime.now().month);
-    return _workouts
-        .where((w) => w.date.isAfter(monthStart))
-        .length;
-  }
-
-  int get _totalMinutesThisMonth {
-    final monthStart = DateTime(DateTime.now().year, DateTime.now().month);
-    return _workouts
-        .where((w) => w.date.isAfter(monthStart))
-        .fold(0, (sum, w) => sum + w.durationMinutes);
-  }
-
-  int get _currentStreak {
-    int streak = 0;
-    var checkDate = DateTime.now();
-    while (true) {
-      final hasWorkout = _workouts.any((w) =>
-          w.date.year == checkDate.year &&
-          w.date.month == checkDate.month &&
-          w.date.day == checkDate.day);
-      if (hasWorkout) {
-        streak++;
-        checkDate = checkDate.subtract(const Duration(days: 1));
-      } else {
-        break;
+  Future<void> _loadSport() async {
+    if (mounted && !_loading) setState(() => _loading = true);
+    try {
+      final api = context.read<ApiService>();
+      final results = await Future.wait([
+        api.getWorkouts(),
+        api.getSportStats(),
+      ]);
+      final rawWorkouts = results[0] as List<Map<String, dynamic>>;
+      final stats = results[1] as Map<String, dynamic>;
+      if (mounted) {
+        setState(() {
+          _workouts = rawWorkouts.map((d) => Workout.fromJson(d)).toList();
+          _stats = stats;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sportdaten konnten nicht geladen werden: $e')),
+        );
       }
     }
-    return streak;
+  }
+
+  int get _thisWeekCount => (_stats['this_week_count'] as num?)?.toInt() ?? 0;
+
+  int get _thisMonthTotal =>
+      (_stats['total_workouts_month'] as num?)?.toInt() ?? 0;
+
+  int get _totalMinutesThisMonth =>
+      (_stats['total_minutes_month'] as num?)?.toInt() ?? 0;
+
+  int get _currentStreak => (_stats['current_streak'] as num?)?.toInt() ?? 0;
+
+  List<Map<String, dynamic>> get _weekDays {
+    final raw = _stats['week_days'];
+    if (raw is List) {
+      return raw
+          .whereType<Map>()
+          .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+          .toList();
+    }
+    return const [];
   }
 
   void _logWorkout() {
     WorkoutType selectedType = WorkoutType.running;
     final durationCtrl = TextEditingController(text: '30');
     final caloriesCtrl = TextEditingController();
+    DateTime? selectedDate = DateTime.now();
+    bool saving = false;
 
     showModalBottomSheet(
       context: context,
@@ -226,33 +195,101 @@ class _SportScreenState extends State<SportScreen> {
                 ],
               ),
 
+              const SizedBox(height: 16),
+
+              // Optional date picker
+              GestureDetector(
+                onTap: () async {
+                  final now = DateTime.now();
+                  final picked = await showDatePicker(
+                    context: ctx,
+                    initialDate: selectedDate ?? now,
+                    firstDate: DateTime(now.year - 2),
+                    lastDate: now,
+                  );
+                  if (picked != null) {
+                    setInner(() => selectedDate = picked);
+                  }
+                },
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.cardBorder),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_today_rounded,
+                          color: AppColors.primary, size: 16),
+                      const SizedBox(width: 10),
+                      Text(
+                        selectedDate == null
+                            ? 'Datum (optional)'
+                            : DateFormat('dd.MM.yyyy').format(selectedDate!),
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (selectedDate != null)
+                        GestureDetector(
+                          onTap: () => setInner(() => selectedDate = null),
+                          child: const Icon(Icons.close_rounded,
+                              color: AppColors.textSecondary, size: 16),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+
               const SizedBox(height: 24),
 
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    final duration =
-                        int.tryParse(durationCtrl.text) ?? 30;
-                    final calories =
-                        int.tryParse(caloriesCtrl.text);
-                    setState(() {
-                      _workouts.insert(
-                        0,
-                        Workout(
-                          id: DateTime.now()
-                              .millisecondsSinceEpoch
-                              .toString(),
-                          type: selectedType,
-                          durationMinutes: duration,
-                          calories: calories,
-                          date: DateTime.now(),
-                        ),
-                      );
-                    });
-                    Navigator.pop(ctx);
-                  },
-                  child: const Text('Training eintragen'),
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          final duration =
+                              int.tryParse(durationCtrl.text) ?? 30;
+                          final calories =
+                              int.tryParse(caloriesCtrl.text) ?? 0;
+                          setInner(() => saving = true);
+                          try {
+                            await context.read<ApiService>().createWorkout({
+                              'type': selectedType.name,
+                              'duration_min': duration,
+                              'calories': calories,
+                              'date': selectedDate
+                                      ?.toIso8601String()
+                                      .split('T')
+                                      .first ??
+                                  '',
+                            });
+                            if (ctx.mounted) Navigator.pop(ctx);
+                            await _loadSport();
+                          } catch (e) {
+                            setInner(() => saving = false);
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(
+                                    content: Text(
+                                        'Training konnte nicht gespeichert werden: $e')),
+                              );
+                            }
+                          }
+                        },
+                  child: saving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Training eintragen'),
                 ),
               ),
             ],
@@ -262,9 +299,43 @@ class _SportScreenState extends State<SportScreen> {
     );
   }
 
+  Future<void> _deleteWorkout(Workout workout) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Training löschen'),
+        content: Text('„${workout.type.label}" löschen?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Löschen',
+                style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        await context.read<ApiService>().deleteWorkout(workout.id);
+        await _loadSport();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Löschen fehlgeschlagen: $e')),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final weeklyWorkouts = _thisWeekWorkouts.length;
+    final weeklyWorkouts = _thisWeekCount;
     final progressRatio = (weeklyWorkouts / _weeklyGoal).clamp(0.0, 1.0);
 
     return Scaffold(
@@ -280,7 +351,13 @@ class _SportScreenState extends State<SportScreen> {
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
       ),
-      body: SingleChildScrollView(
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadSport,
+              color: AppColors.primary,
+              child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 100),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -420,7 +497,7 @@ class _SportScreenState extends State<SportScreen> {
             // Weekly calendar
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _WeekCalendar(workouts: _workouts),
+              child: _WeekCalendar(weekDays: _weekDays),
             ).animate().fade(delay: 400.ms, duration: 400.ms),
 
             const SizedBox(height: 24),
@@ -443,17 +520,34 @@ class _SportScreenState extends State<SportScreen> {
 
             if (_workouts.isEmpty)
               const Padding(
-                padding: EdgeInsets.all(24),
+                padding: EdgeInsets.fromLTRB(24, 16, 24, 24),
                 child: Center(
-                  child: Text(
-                    'Noch keine Einheiten eingetragen',
-                    style: TextStyle(color: AppColors.textSecondary),
+                  child: Column(
+                    children: [
+                      Icon(Icons.fitness_center_rounded,
+                          color: AppColors.textSecondary, size: 40),
+                      SizedBox(height: 12),
+                      Text(
+                        'Noch keine Einheiten eingetragen',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Tippe auf „Training eintragen", um zu starten.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: AppColors.textSecondary, fontSize: 12),
+                      ),
+                    ],
                   ),
                 ),
               )
             else
               ..._workouts.take(10).toList().asMap().entries.map(
-                    (e) => _WorkoutItem(workout: e.value)
+                    (e) => _WorkoutItem(
+                      workout: e.value,
+                      onDelete: () => _deleteWorkout(e.value),
+                    )
                         .animate(
                             delay: Duration(
                                 milliseconds: 450 + e.key * 60))
@@ -463,6 +557,7 @@ class _SportScreenState extends State<SportScreen> {
           ],
         ),
       ),
+            ),
     );
   }
 }
@@ -512,15 +607,16 @@ class _SmallStat extends StatelessWidget {
 }
 
 class _WeekCalendar extends StatelessWidget {
-  final List<Workout> workouts;
+  final List<Map<String, dynamic>> weekDays;
 
-  const _WeekCalendar({required this.workouts});
+  const _WeekCalendar({required this.weekDays});
 
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final weekStart = now.subtract(Duration(days: now.weekday - 1));
-    final days = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+    // Fallback labels if backend returns nothing.
+    const fallback = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -545,12 +641,11 @@ class _WeekCalendar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: List.generate(7, (i) {
               final day = weekStart.add(Duration(days: i));
-              final hasWorkout = workouts.any(
-                (w) =>
-                    w.date.year == day.year &&
-                    w.date.month == day.month &&
-                    w.date.day == day.day,
-              );
+              final dayData = i < weekDays.length ? weekDays[i] : null;
+              final label = (dayData?['day']?.toString().isNotEmpty ?? false)
+                  ? dayData!['day'].toString()
+                  : fallback[i];
+              final hasWorkout = dayData?['done'] == true;
               final isToday = day.day == now.day &&
                   day.month == now.month &&
                   day.year == now.year;
@@ -559,7 +654,7 @@ class _WeekCalendar extends StatelessWidget {
               return Column(
                 children: [
                   Text(
-                    days[i],
+                    label,
                     style: TextStyle(
                       color: isToday
                           ? AppColors.primary
@@ -623,8 +718,9 @@ class _WeekCalendar extends StatelessWidget {
 
 class _WorkoutItem extends StatelessWidget {
   final Workout workout;
+  final VoidCallback? onDelete;
 
-  const _WorkoutItem({required this.workout});
+  const _WorkoutItem({required this.workout, this.onDelete});
 
   static const List<String> _weekdayShort = [
     'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'
@@ -638,7 +734,9 @@ class _WorkoutItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final card = GestureDetector(
+      onLongPress: onDelete,
+      child: Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -723,8 +821,43 @@ class _WorkoutItem extends StatelessWidget {
               ],
             ],
           ),
+          if (onDelete != null) ...[
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: onDelete,
+              child: const Padding(
+                padding: EdgeInsets.all(4),
+                child: Icon(Icons.delete_outline_rounded,
+                    color: AppColors.textSecondary, size: 18),
+              ),
+            ),
+          ],
         ],
       ),
+      ),
+    );
+
+    if (onDelete == null) return card;
+
+    return Dismissible(
+      key: ValueKey(workout.id),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (_) async {
+        onDelete!();
+        // Deletion + reload handled by callback; don't auto-remove here.
+        return false;
+      },
+      background: Container(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+        padding: const EdgeInsets.only(right: 20),
+        alignment: Alignment.centerRight,
+        decoration: BoxDecoration(
+          color: AppColors.error.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Icon(Icons.delete_rounded, color: AppColors.error),
+      ),
+      child: card,
     );
   }
 }

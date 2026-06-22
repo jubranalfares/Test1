@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../models/transaction.dart';
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 
 class FinanceScreen extends StatefulWidget {
@@ -16,7 +18,10 @@ class _FinanceScreenState extends State<FinanceScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   List<Transaction> _transactions = [];
+  Map<String, dynamic> _stats = {};
+  List<Map<String, dynamic>> _summary = [];
   String _filterType = 'all'; // all, income, expense
+  bool _loading = true;
 
   @override
   void initState() {
@@ -37,7 +42,7 @@ class _FinanceScreenState extends State<FinanceScreen>
         }
       });
     });
-    _loadSampleData();
+    _loadFinance();
   }
 
   @override
@@ -46,73 +51,37 @@ class _FinanceScreenState extends State<FinanceScreen>
     super.dispose();
   }
 
-  void _loadSampleData() {
-    _transactions = [
-      Transaction(
-        id: '1',
-        description: 'Monatsgehalt',
-        amount: 4500,
-        type: TransactionType.income,
-        category: TransactionCategory.salary,
-        date: DateTime.now().subtract(const Duration(days: 1)),
-      ),
-      Transaction(
-        id: '2',
-        description: 'Lebensmitteleinkauf',
-        amount: 87.50,
-        type: TransactionType.expense,
-        category: TransactionCategory.food,
-        date: DateTime.now().subtract(const Duration(days: 2)),
-      ),
-      Transaction(
-        id: '3',
-        description: 'Uber-Fahrt',
-        amount: 24.00,
-        type: TransactionType.expense,
-        category: TransactionCategory.transport,
-        date: DateTime.now().subtract(const Duration(days: 2)),
-      ),
-      Transaction(
-        id: '4',
-        description: 'Freelance-Projekt',
-        amount: 850,
-        type: TransactionType.income,
-        category: TransactionCategory.freelance,
-        date: DateTime.now().subtract(const Duration(days: 4)),
-      ),
-      Transaction(
-        id: '5',
-        description: 'Netflix-Abo',
-        amount: 15.99,
-        type: TransactionType.expense,
-        category: TransactionCategory.entertainment,
-        date: DateTime.now().subtract(const Duration(days: 5)),
-      ),
-      Transaction(
-        id: '6',
-        description: 'Amazon-Einkauf',
-        amount: 142.30,
-        type: TransactionType.expense,
-        category: TransactionCategory.shopping,
-        date: DateTime.now().subtract(const Duration(days: 6)),
-      ),
-      Transaction(
-        id: '7',
-        description: 'Apotheke',
-        amount: 33.00,
-        type: TransactionType.expense,
-        category: TransactionCategory.health,
-        date: DateTime.now().subtract(const Duration(days: 7)),
-      ),
-      Transaction(
-        id: '8',
-        description: 'Café',
-        amount: 18.50,
-        type: TransactionType.expense,
-        category: TransactionCategory.food,
-        date: DateTime.now().subtract(const Duration(days: 8)),
-      ),
-    ];
+  Future<void> _loadFinance() async {
+    if (mounted) setState(() => _loading = true);
+    try {
+      final api = context.read<ApiService>();
+      final results = await Future.wait([
+        api.getTransactions(),
+        api.getFinanceStats(),
+        api.getFinanceSummary(),
+      ]);
+      final txData = results[0] as List<Map<String, dynamic>>;
+      final statsData = results[1] as Map<String, dynamic>;
+      final summaryData = results[2] as List<Map<String, dynamic>>;
+      if (mounted) {
+        setState(() {
+          _transactions =
+              txData.map((d) => Transaction.fromJson(d)).toList();
+          _stats = statsData;
+          _summary = summaryData;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Finanzdaten konnten nicht geladen werden: $e'),
+          ),
+        );
+      }
+    }
   }
 
   List<Transaction> get _filteredTransactions {
@@ -130,21 +99,39 @@ class _FinanceScreenState extends State<FinanceScreen>
     }
   }
 
-  double get _totalIncome => _transactions
-      .where((t) => t.type == TransactionType.income)
-      .fold(0.0, (sum, t) => sum + t.amount);
+  double _statNum(String key) {
+    final v = _stats[key];
+    if (v is num) return v.toDouble();
+    return double.tryParse(v?.toString() ?? '') ?? 0.0;
+  }
 
-  double get _totalExpenses => _transactions
-      .where((t) => t.type == TransactionType.expense)
-      .fold(0.0, (sum, t) => sum + t.amount);
+  double get _totalIncome {
+    if (_stats.containsKey('total_income')) return _statNum('total_income');
+    return _transactions
+        .where((t) => t.type == TransactionType.income)
+        .fold(0.0, (sum, t) => sum + t.amount);
+  }
 
-  double get _balance => _totalIncome - _totalExpenses;
+  double get _totalExpenses {
+    if (_stats.containsKey('total_expenses')) {
+      return _statNum('total_expenses');
+    }
+    return _transactions
+        .where((t) => t.type == TransactionType.expense)
+        .fold(0.0, (sum, t) => sum + t.amount);
+  }
+
+  double get _balance {
+    if (_stats.containsKey('balance')) return _statNum('balance');
+    return _totalIncome - _totalExpenses;
+  }
 
   void _addTransaction() {
     final descCtrl = TextEditingController();
     final amountCtrl = TextEditingController();
     TransactionType selectedType = TransactionType.expense;
     TransactionCategory selectedCategory = TransactionCategory.other;
+    DateTime? selectedDate;
 
     showModalBottomSheet(
       context: context,
@@ -249,31 +236,94 @@ class _FinanceScreenState extends State<FinanceScreen>
                     setInner(() => selectedCategory = v!),
               ),
 
+              const SizedBox(height: 12),
+
+              // Optional date picker
+              InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () async {
+                  final now = DateTime.now();
+                  final picked = await showDatePicker(
+                    context: ctx,
+                    initialDate: selectedDate ?? now,
+                    firstDate: DateTime(now.year - 5),
+                    lastDate: DateTime(now.year + 5),
+                  );
+                  if (picked != null) {
+                    setInner(() => selectedDate = picked);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.cardBorder),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_today_rounded,
+                          color: AppColors.textSecondary, size: 18),
+                      const SizedBox(width: 12),
+                      Text(
+                        selectedDate == null
+                            ? 'Datum (optional)'
+                            : DateFormat('dd.MM.yyyy').format(selectedDate!),
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (selectedDate != null)
+                        GestureDetector(
+                          onTap: () => setInner(() => selectedDate = null),
+                          child: const Icon(Icons.close_rounded,
+                              color: AppColors.textSecondary, size: 18),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+
               const SizedBox(height: 24),
 
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    final amount =
-                        double.tryParse(amountCtrl.text) ?? 0;
-                    if (descCtrl.text.isNotEmpty && amount > 0) {
-                      setState(() {
-                        _transactions.insert(
-                          0,
-                          Transaction(
-                            id: DateTime.now()
-                                .millisecondsSinceEpoch
-                                .toString(),
-                            description: descCtrl.text,
-                            amount: amount,
-                            type: selectedType,
-                            category: selectedCategory,
-                            date: DateTime.now(),
+                  onPressed: () async {
+                    final amount = double.tryParse(
+                            amountCtrl.text.replaceAll(',', '.')) ??
+                        0;
+                    if (descCtrl.text.isEmpty || amount <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                              'Bitte Beschreibung und gültigen Betrag eingeben.'),
+                        ),
+                      );
+                      return;
+                    }
+                    Navigator.pop(ctx);
+                    try {
+                      await context.read<ApiService>().createTransaction({
+                        'amount': amount,
+                        'type': selectedType.name,
+                        'category': selectedCategory.name,
+                        'description': descCtrl.text,
+                        'date': selectedDate?.toIso8601String() ?? '',
+                      });
+                      await _loadFinance();
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                                'Transaktion konnte nicht gespeichert werden: $e'),
                           ),
                         );
-                      });
-                      Navigator.pop(ctx);
+                      }
                     }
                   },
                   child: const Text('Hinzufügen'),
@@ -284,6 +334,50 @@ class _FinanceScreenState extends State<FinanceScreen>
         ),
       ),
     );
+  }
+
+  Future<void> _deleteTransaction(Transaction tx) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: const Text(
+          'Transaktion löschen?',
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
+        content: Text(
+          'Möchtest du "${tx.description}" wirklich löschen?',
+          style: const TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Löschen',
+              style: TextStyle(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await context.read<ApiService>().deleteTransaction(tx.id);
+      await _loadFinance();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text('Transaktion konnte nicht gelöscht werden: $e'),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -297,74 +391,155 @@ class _FinanceScreenState extends State<FinanceScreen>
         backgroundColor: AppColors.primary,
         child: const Icon(Icons.add_rounded, color: Colors.white),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 80),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Balance card
-            _BalanceCard(
-              balance: _balance,
-              income: _totalIncome,
-              expenses: _totalExpenses,
-            ).animate().fade(duration: 400.ms).slideY(begin: -0.05, end: 0),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadFinance,
+              color: AppColors.primary,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(bottom: 80),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Balance card
+                    _BalanceCard(
+                      balance: _balance,
+                      income: _totalIncome,
+                      expenses: _totalExpenses,
+                    )
+                        .animate()
+                        .fade(duration: 400.ms)
+                        .slideY(begin: -0.05, end: 0),
 
-            const SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-            // Chart
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _BarChartWidget(
-                income: _totalIncome,
-                expenses: _totalExpenses,
-              ).animate().fade(delay: 200.ms, duration: 400.ms),
-            ),
+                    // Chart (7-day income vs. expenses from getFinanceSummary)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _BarChartWidget(
+                        income: _totalIncome,
+                        expenses: _totalExpenses,
+                        summary: _summary,
+                      ).animate().fade(delay: 200.ms, duration: 400.ms),
+                    ),
 
-            const SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-            // Filter tabs
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.cardBorder),
-                ),
-                child: TabBar(
-                  controller: _tabController,
-                  labelColor: AppColors.primary,
-                  unselectedLabelColor: AppColors.textSecondary,
-                  indicator: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha:0.15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  dividerColor: Colors.transparent,
-                  tabs: const [
-                    Tab(text: 'Alle'),
-                    Tab(text: 'Einnahmen'),
-                    Tab(text: 'Ausgaben'),
+                    // Filter tabs
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.cardBorder),
+                        ),
+                        child: TabBar(
+                          controller: _tabController,
+                          labelColor: AppColors.primary,
+                          unselectedLabelColor: AppColors.textSecondary,
+                          indicator: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          indicatorSize: TabBarIndicatorSize.tab,
+                          dividerColor: Colors.transparent,
+                          tabs: const [
+                            Tab(text: 'Alle'),
+                            Tab(text: 'Einnahmen'),
+                            Tab(text: 'Ausgaben'),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Transaction list / empty state
+                    if (_filteredTransactions.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 48, 16, 48),
+                        child: Center(
+                          child: Column(
+                            children: [
+                              const Icon(
+                                Icons.account_balance_wallet_outlined,
+                                color: AppColors.textSecondary,
+                                size: 48,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _transactions.isEmpty
+                                    ? 'Noch keine Transaktionen vorhanden'
+                                    : 'Keine Transaktionen in dieser Kategorie',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Tippe auf +, um deine erste Transaktion hinzuzufügen.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      ..._filteredTransactions.asMap().entries.map(
+                            (e) => Dismissible(
+                              key: ValueKey(e.value.id),
+                              direction: DismissDirection.endToStart,
+                              confirmDismiss: (_) async {
+                                await _deleteTransaction(e.value);
+                                // Reload handled in _deleteTransaction; never
+                                // self-dismiss so the list stays consistent.
+                                return false;
+                              },
+                              background: Container(
+                                alignment: Alignment.centerRight,
+                                margin:
+                                    const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                                padding:
+                                    const EdgeInsets.only(right: 20),
+                                decoration: BoxDecoration(
+                                  color: AppColors.error
+                                      .withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: AppColors.error,
+                                ),
+                              ),
+                              child: GestureDetector(
+                                onLongPress: () =>
+                                    _deleteTransaction(e.value),
+                                child: _TransactionItem(
+                                  transaction: e.value,
+                                ),
+                              ),
+                            )
+                                .animate(
+                                  delay:
+                                      Duration(milliseconds: e.key * 50),
+                                )
+                                .fade(duration: 300.ms)
+                                .slideX(begin: -0.05, end: 0),
+                          ),
+
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),
             ),
-
-            const SizedBox(height: 12),
-
-            // Transaction list
-            ..._filteredTransactions.asMap().entries.map(
-                  (e) => _TransactionItem(transaction: e.value)
-                      .animate(
-                          delay: Duration(milliseconds: e.key * 50))
-                      .fade(duration: 300.ms)
-                      .slideX(begin: -0.05, end: 0),
-                ),
-
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -535,11 +710,26 @@ class _MiniStat extends StatelessWidget {
 class _BarChartWidget extends StatelessWidget {
   final double income;
   final double expenses;
+  final List<Map<String, dynamic>> summary;
 
-  const _BarChartWidget({required this.income, required this.expenses});
+  const _BarChartWidget({
+    required this.income,
+    required this.expenses,
+    this.summary = const [],
+  });
+
+  double _num(dynamic v) {
+    if (v is num) return v.toDouble();
+    return double.tryParse(v?.toString() ?? '') ?? 0.0;
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Prefer the real 7-day summary; fall back to the aggregate two-bar view.
+    if (summary.isNotEmpty) {
+      return _buildSummaryChart(context);
+    }
+
     final max = (income > expenses ? income : expenses) * 1.2;
 
     return Container(
@@ -655,6 +845,158 @@ class _BarChartWidget extends StatelessWidget {
                     ],
                   ),
                 ],
+                barTouchData: BarTouchData(
+                  touchTooltipData: BarTouchTooltipData(
+                    tooltipBgColor: AppColors.surface,
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      return BarTooltipItem(
+                        '€${rod.toY.toStringAsFixed(0)}',
+                        const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 7-day income vs. expense chart fed by getFinanceSummary.
+  Widget _buildSummaryChart(BuildContext context) {
+    double maxVal = 0;
+    for (final d in summary) {
+      final inc = _num(d['income']);
+      final exp = _num(d['expense']);
+      if (inc > maxVal) maxVal = inc;
+      if (exp > maxVal) maxVal = exp;
+    }
+    final max = maxVal * 1.2;
+
+    final groups = <BarChartGroupData>[];
+    for (var i = 0; i < summary.length; i++) {
+      final inc = _num(summary[i]['income']);
+      final exp = _num(summary[i]['expense']);
+      groups.add(
+        BarChartGroupData(
+          x: i,
+          barsSpace: 2,
+          barRods: [
+            BarChartRodData(
+              toY: inc,
+              gradient: const LinearGradient(
+                colors: [AppColors.success, Color(0xFF00BF60)],
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+              ),
+              width: 8,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(4)),
+            ),
+            BarChartRodData(
+              toY: exp,
+              gradient: const LinearGradient(
+                colors: [AppColors.error, Color(0xFFFF7575)],
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+              ),
+              width: 8,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(4)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Einnahmen vs. Ausgaben (7 Tage)',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 120,
+            child: BarChart(
+              BarChartData(
+                maxY: max > 0 ? max : 100,
+                minY: 0,
+                backgroundColor: Colors.transparent,
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: max > 0 ? max / 4 : 25,
+                  getDrawingHorizontalLine: (v) => const FlLine(
+                    color: AppColors.cardBorder,
+                    strokeWidth: 1,
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 50,
+                      getTitlesWidget: (v, meta) => Text(
+                        '€${(v / 1000).toStringAsFixed(1)}k',
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  ),
+                  rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (v, meta) {
+                        final idx = v.toInt();
+                        if (idx < 0 || idx >= summary.length) {
+                          return const SizedBox.shrink();
+                        }
+                        final dateStr =
+                            summary[idx]['date']?.toString() ?? '';
+                        final parsed = DateTime.tryParse(dateStr);
+                        final label = parsed != null
+                            ? DateFormat('dd.MM.').format(parsed)
+                            : dateStr;
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            label,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 10,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                barGroups: groups,
                 barTouchData: BarTouchData(
                   touchTooltipData: BarTouchTooltipData(
                     tooltipBgColor: AppColors.surface,
