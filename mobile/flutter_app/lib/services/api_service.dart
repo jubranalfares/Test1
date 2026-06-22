@@ -300,6 +300,251 @@ class ApiService extends ChangeNotifier {
     }
   }
 
+  // --- Goals ---
+  Future<List<Map<String, dynamic>>> getGoals() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$_baseUrl/goals'), headers: _headers)
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) return data.cast<Map<String, dynamic>>();
+        if (data is Map && data['goals'] != null) {
+          return (data['goals'] as List).cast<Map<String, dynamic>>();
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Get goals error: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> getGoalsStats() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$_baseUrl/goals/stats'), headers: _headers)
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return {};
+    } catch (e) {
+      debugPrint('Goals stats error: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> createGoal(Map<String, dynamic> goal) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$_baseUrl/goals'),
+              headers: _headers, body: jsonEncode(goal))
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      throw ApiException('Create goal failed: ${response.statusCode}');
+    } catch (e) {
+      debugPrint('Create goal error: $e');
+      rethrow;
+    }
+  }
+
+  /// Sets or increments a goal's progress. With [increment] true, [value] is
+  /// added to the current value; otherwise it replaces it.
+  Future<Map<String, dynamic>> updateGoalProgress(String id, double value,
+      {bool increment = false}) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$_baseUrl/goals/$id/progress'),
+              headers: _headers,
+              body: jsonEncode({'value': value, 'increment': increment}))
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      throw ApiException('Update progress failed: ${response.statusCode}');
+    } catch (e) {
+      debugPrint('Update goal progress error: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteGoal(String id) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$_baseUrl/goals/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        throw ApiException('Delete goal failed: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Delete goal error: $e');
+      rethrow;
+    }
+  }
+
+  // --- Finance ---
+  Future<List<Map<String, dynamic>>> getTransactions(
+      {String? type, String? month}) async {
+    try {
+      final params = <String, String>{};
+      if (type != null && type.isNotEmpty) params['type'] = type;
+      if (month != null && month.isNotEmpty) params['month'] = month;
+      final uri = Uri.parse('$_baseUrl/transactions')
+          .replace(queryParameters: params.isEmpty ? null : params);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) return data.cast<Map<String, dynamic>>();
+        if (data is Map && data['transactions'] != null) {
+          return (data['transactions'] as List).cast<Map<String, dynamic>>();
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Get transactions error: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> getFinanceStats({String? month}) async {
+    try {
+      final params = <String, String>{};
+      if (month != null && month.isNotEmpty) params['month'] = month;
+      final uri = Uri.parse('$_baseUrl/finance/stats')
+          .replace(queryParameters: params.isEmpty ? null : params);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return {};
+    } catch (e) {
+      debugPrint('Finance stats error: $e');
+      return {};
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getFinanceSummary() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$_baseUrl/finance/summary'), headers: _headers)
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is Map && data['summary'] != null) {
+          return (data['summary'] as List).cast<Map<String, dynamic>>();
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Finance summary error: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> createTransaction(
+      Map<String, dynamic> tx) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$_baseUrl/transactions'),
+              headers: _headers, body: jsonEncode(tx))
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      throw ApiException('Create transaction failed: ${response.statusCode}');
+    } catch (e) {
+      debugPrint('Create transaction error: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteTransaction(String id) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$_baseUrl/transactions/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        throw ApiException('Delete transaction failed: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Delete transaction error: $e');
+      rethrow;
+    }
+  }
+
+  // --- Sport ---
+  Future<List<Map<String, dynamic>>> getWorkouts({int? limit}) async {
+    try {
+      final params = <String, String>{};
+      if (limit != null && limit > 0) params['limit'] = limit.toString();
+      final uri = Uri.parse('$_baseUrl/workouts')
+          .replace(queryParameters: params.isEmpty ? null : params);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) return data.cast<Map<String, dynamic>>();
+        if (data is Map && data['workouts'] != null) {
+          return (data['workouts'] as List).cast<Map<String, dynamic>>();
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Get workouts error: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> getSportStats() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$_baseUrl/sport/stats'), headers: _headers)
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return {};
+    } catch (e) {
+      debugPrint('Sport stats error: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> createWorkout(Map<String, dynamic> w) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$_baseUrl/workouts'),
+              headers: _headers, body: jsonEncode(w))
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      throw ApiException('Create workout failed: ${response.statusCode}');
+    } catch (e) {
+      debugPrint('Create workout error: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteWorkout(String id) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$_baseUrl/workouts/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        throw ApiException('Delete workout failed: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Delete workout error: $e');
+      rethrow;
+    }
+  }
+
   // --- Memory ---
   Future<Map<String, dynamic>> getMemoryFacts() async {
     try {

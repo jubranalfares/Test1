@@ -91,10 +91,9 @@ class Workout {
   Map<String, dynamic> toJson() => {
         'id': id,
         'type': type.name,
-        'durationMinutes': durationMinutes,
+        'duration_min': durationMinutes,
         'calories': calories,
         'date': date.toIso8601String(),
-        'notes': notes,
       };
 
   factory Workout.fromJson(Map<String, dynamic> json) {
@@ -107,13 +106,18 @@ class Workout {
       }
     }
 
+    // Backend sends duration_min; older shape sent durationMinutes.
+    final duration = (json['duration_min'] as num?)?.toInt() ??
+        (json['durationMinutes'] as num?)?.toInt() ??
+        0;
+
     return Workout(
       id: json['id']?.toString() ?? '',
       type: type,
-      durationMinutes: (json['durationMinutes'] as num?)?.toInt() ?? 0,
+      durationMinutes: duration,
       calories: (json['calories'] as num?)?.toInt(),
       date: json['date'] != null
-          ? DateTime.parse(json['date'].toString())
+          ? (DateTime.tryParse(json['date'].toString()) ?? DateTime.now())
           : DateTime.now(),
       notes: json['notes']?.toString(),
     );

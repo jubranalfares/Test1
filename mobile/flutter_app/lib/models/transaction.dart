@@ -126,7 +126,7 @@ class Transaction {
       type: type,
       category: category,
       date: json['date'] != null
-          ? DateTime.parse(json['date'].toString())
+          ? (DateTime.tryParse(json['date'].toString()) ?? DateTime.now())
           : DateTime.now(),
       note: json['note']?.toString(),
     );
