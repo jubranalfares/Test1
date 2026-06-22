@@ -66,8 +66,6 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
 
     setState(() => _isSaving = true);
     final api = context.read<ApiService>();
-    final now = DateTime.now();
-
     try {
       final noteData = {
         'title': _titleController.text.trim(),
@@ -183,10 +181,14 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final nav = Navigator.of(context);
         if (_hasChanges) await _save();
-        return true;
+        if (!mounted) return;
+        nav.pop();
       },
       child: Scaffold(
         backgroundColor: _hexToColor(_selectedColor),
@@ -195,8 +197,10 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_rounded),
             onPressed: () async {
+              final nav = Navigator.of(context);
               if (_hasChanges) await _save();
-              if (mounted) Navigator.pop(context);
+              if (!mounted) return;
+              nav.pop();
             },
           ),
           actions: [
@@ -311,13 +315,13 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   ..._tags.map(
                     (tag) => Chip(
                       label: Text(tag),
-                      backgroundColor: AppColors.primary.withOpacity(0.15),
+                      backgroundColor: AppColors.primary.withValues(alpha:0.15),
                       labelStyle: const TextStyle(
                         color: AppColors.primary,
                         fontSize: 12,
                       ),
                       side: BorderSide(
-                          color: AppColors.primary.withOpacity(0.3)),
+                          color: AppColors.primary.withValues(alpha:0.3)),
                       deleteIcon: const Icon(Icons.close_rounded, size: 14),
                       deleteIconColor: AppColors.primary,
                       onDeleted: () {
@@ -377,7 +381,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                         boxShadow: isSelected
                             ? [
                                 BoxShadow(
-                                  color: AppColors.primary.withOpacity(0.4),
+                                  color: AppColors.primary.withValues(alpha:0.4),
                                   blurRadius: 8,
                                 )
                               ]

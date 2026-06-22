@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
@@ -398,11 +397,13 @@ class VoiceService extends ChangeNotifier {
     notifyListeners();
   }
 
+  @override
   Future<void> dispose() async {
     try {
       await _recorder.dispose();
       await _player.dispose();
       await _flutterTts.stop();
     } catch (_) {}
+    super.dispose();
   }
 }

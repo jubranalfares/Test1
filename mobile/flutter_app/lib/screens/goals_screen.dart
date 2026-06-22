@@ -171,6 +171,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Ziele')),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'fab_goals',
         onPressed: _addGoal,
         backgroundColor: AppColors.primary,
         child: const Icon(Icons.add_rounded, color: Colors.white),
@@ -268,7 +269,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppColors.success.withOpacity(0.15),
+                      color: AppColors.success.withValues(alpha:0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
@@ -492,7 +493,7 @@ class _GoalCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _statusColor.withOpacity(0.15),
+                  color: _statusColor.withValues(alpha:0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -549,7 +550,7 @@ class _GoalCard extends StatelessWidget {
                         activeTrackColor: _statusColor,
                         inactiveTrackColor: AppColors.cardBorder,
                         thumbColor: _statusColor,
-                        overlayColor: _statusColor.withOpacity(0.2),
+                        overlayColor: _statusColor.withValues(alpha:0.2),
                       ),
                       child: Slider(
                         value: goal.progress.clamp(0.0, 1.0),
@@ -613,7 +614,7 @@ class _CompletedGoalCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.success.withOpacity(0.3)),
+        border: Border.all(color: AppColors.success.withValues(alpha:0.3)),
       ),
       child: Row(
         children: [
@@ -621,7 +622,7 @@ class _CompletedGoalCard extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: AppColors.success.withOpacity(0.15),
+              color: AppColors.success.withValues(alpha:0.15),
               shape: BoxShape.circle,
             ),
             child: const Icon(

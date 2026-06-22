@@ -58,7 +58,7 @@ class _UserBubble extends StatelessWidget {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primary.withOpacity(0.3),
+                        color: AppColors.primary.withValues(alpha:0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
                       ),
@@ -138,7 +138,7 @@ class _JarvisBubble extends StatelessWidget {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: AppColors.primary.withOpacity(0.4),
+                color: AppColors.primary.withValues(alpha:0.4),
                 blurRadius: 8,
                 spreadRadius: 1,
               ),
@@ -204,16 +204,18 @@ class _JarvisBubble extends StatelessWidget {
                             color: AppColors.textSecondary,
                             fontStyle: FontStyle.italic,
                           ),
-                          code: TextStyle(
+                          code: const TextStyle(
                             backgroundColor: AppColors.surface,
                             color: AppColors.secondary,
                             fontFamily: 'monospace',
                             fontSize: 13,
                           ),
-                          codeblockDecoration: BoxDecoration(
+                          codeblockDecoration: const BoxDecoration(
                             color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.cardBorder),
+                            borderRadius: BorderRadius.all(Radius.circular(8)),
+                            border: Border.fromBorderSide(
+                              BorderSide(color: AppColors.cardBorder),
+                            ),
                           ),
                           h1: const TextStyle(
                             color: AppColors.textPrimary,
@@ -237,7 +239,7 @@ class _JarvisBubble extends StatelessWidget {
                             color: AppColors.textSecondary,
                             fontStyle: FontStyle.italic,
                           ),
-                          blockquoteDecoration: BoxDecoration(
+                          blockquoteDecoration: const BoxDecoration(
                             border: Border(
                               left: BorderSide(
                                 color: AppColors.primary,
@@ -373,7 +375,7 @@ class _Dot extends StatelessWidget {
           width: 8,
           height: 8,
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.4 + 0.6 * scale),
+            color: AppColors.primary.withValues(alpha:0.4 + 0.6 * scale),
             shape: BoxShape.circle,
           ),
           transform: Matrix4.diagonal3Values(scale, scale, 1),

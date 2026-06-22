@@ -5,7 +5,7 @@ services:
     build: ./backend/api-gateway
     container_name: jarvis-gateway
     ports:
-      - "8000:8000"
+      - "8080:8000"
     environment:
       - AI_ENGINE_URL=http://ai-engine:8001
       - MEMORY_ENGINE_URL=http://memory-engine:8002

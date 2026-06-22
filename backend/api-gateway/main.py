@@ -113,6 +113,20 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     return {"access_token": token, "token_type": "bearer"}
 
 
+@app.post("/auth/login")
+async def auth_login(request: Request):
+    """Flutter-compatible login endpoint — accepts JSON {password: ...}."""
+    body = await request.json()
+    password = body.get("password", "")
+    if password != USER_PASSWORD:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid password",
+        )
+    token = create_access_token({"sub": JARVIS_USERNAME})
+    return {"access_token": token, "token_type": "bearer"}
+
+
 # ---------------------------------------------------------------------------
 # Chat endpoint
 # ---------------------------------------------------------------------------
@@ -160,19 +174,22 @@ async def chat(
             logger.error(f"ai-engine chat failed: {e}")
             raise HTTPException(status_code=502, detail=f"AI engine error: {str(e)}")
 
-        # Step 3: Store in memory-engine
-        try:
-            await client.post(
-                f"{MEMORY_ENGINE_URL}/remember",
-                json={
-                    "user_message": message,
-                    "assistant_message": ai_data.get("response", ""),
-                    "timestamp": datetime.utcnow().isoformat(),
-                },
-            )
-        except Exception as e:
-            logger.warning(f"memory-engine remember failed: {e}")
+        # Step 3: Store in memory-engine (fire-and-forget — don't block the response)
+        async def _remember():
+            try:
+                async with get_client() as c:
+                    await c.post(
+                        f"{MEMORY_ENGINE_URL}/remember",
+                        json={
+                            "user_message": message,
+                            "assistant_message": ai_data.get("response", ""),
+                            "timestamp": datetime.utcnow().isoformat(),
+                        },
+                    )
+            except Exception as e:
+                logger.warning(f"memory-engine remember failed: {e}")
 
+        asyncio.create_task(_remember())
         return ai_data
 
 

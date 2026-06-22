@@ -98,7 +98,7 @@ class _MainScreenState extends State<MainScreen> {
                                 horizontal: 16, vertical: 4),
                             decoration: BoxDecoration(
                               color: isActive
-                                  ? AppColors.primary.withOpacity(0.15)
+                                  ? AppColors.primary.withValues(alpha:0.15)
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -218,8 +218,8 @@ class _VoiceFABState extends State<_VoiceFAB>
               boxShadow: [
                 BoxShadow(
                   color: isRecording
-                      ? Colors.red.withOpacity(0.5)
-                      : AppColors.primary.withOpacity(0.4),
+                      ? Colors.red.withValues(alpha:0.5)
+                      : AppColors.primary.withValues(alpha:0.4),
                   blurRadius: 16,
                   spreadRadius: 2,
                 ),

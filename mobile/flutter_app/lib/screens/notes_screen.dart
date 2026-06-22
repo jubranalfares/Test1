@@ -141,6 +141,7 @@ class _NotesScreenState extends State<NotesScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'fab_notes',
         onPressed: () => _openNote(null),
         backgroundColor: AppColors.primary,
         child: const Icon(Icons.add_rounded, color: Colors.white),
@@ -253,7 +254,7 @@ class _NotesScreenState extends State<NotesScreen> {
                             direction: DismissDirection.startToEnd,
                             background: Container(
                               decoration: BoxDecoration(
-                                color: AppColors.error.withOpacity(0.2),
+                                color: AppColors.error.withValues(alpha:0.2),
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               alignment: Alignment.centerLeft,
@@ -305,7 +306,7 @@ class _TagChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.primary.withOpacity(0.2)
+              ? AppColors.primary.withValues(alpha:0.2)
               : AppColors.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
@@ -441,7 +442,7 @@ class _NoteCard extends StatelessWidget {
                                     horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color:
-                                      _accentColor.withOpacity(0.15),
+                                      _accentColor.withValues(alpha:0.15),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -482,10 +483,10 @@ class _EmptyState extends StatelessWidget {
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
+              color: AppColors.primary.withValues(alpha:0.1),
               shape: BoxShape.circle,
               border: Border.all(
-                  color: AppColors.primary.withOpacity(0.3)),
+                  color: AppColors.primary.withValues(alpha:0.3)),
             ),
             child: const Icon(
               Icons.note_add_outlined,
