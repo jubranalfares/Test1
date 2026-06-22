@@ -226,78 +226,25 @@ class VoiceService extends ChangeNotifier {
   // pipeline can detect it has been superseded/cancelled and bail out.
   int _speakGen = 0;
 
-  /// Splits [text] into sentence-sized chunks so Jarvis can start talking
-  /// after the FIRST sentence's audio is ready, instead of waiting for the
-  /// whole reply. Long sentences are further chunked so no single request is
-  /// huge. This is what makes speech start almost immediately.
-  List<String> _splitSentences(String text) {
-    final cleaned = text.replaceAll(RegExp(r'\s+'), ' ').trim();
-    if (cleaned.isEmpty) return const [];
-    final out = <String>[];
-    for (final m in RegExp(r'[^.!?…]+[.!?…]*').allMatches(cleaned)) {
-      final s = m.group(0)?.trim() ?? '';
-      if (s.isEmpty) continue;
-      if (s.length <= 180) {
-        out.add(s);
-      } else {
-        out.addAll(_chunkLong(s, 180));
-      }
-    }
-    return out.isEmpty ? [cleaned] : out;
-  }
-
-  Iterable<String> _chunkLong(String s, int max) sync* {
-    final words = s.split(' ');
-    final buf = StringBuffer();
-    for (final w in words) {
-      if (buf.length + w.length + 1 > max && buf.isNotEmpty) {
-        yield buf.toString().trim();
-        buf.clear();
-      }
-      buf.write('$w ');
-    }
-    if (buf.isNotEmpty) yield buf.toString().trim();
-  }
-
-  /// Web (Safari) path: fetch each sentence's neural audio from the backend
-  /// and play them in order, PREFETCHING the next sentence while the current
-  /// one plays so there's no gap. Bails out if [gen] is superseded.
+  /// Web (Safari): fetch the WHOLE reply as ONE neural-audio clip and play it
+  /// once. Single-voice on purpose — the browser's own speech synthesis (a
+  /// DIFFERENT voice) is NEVER used as a fallback, because mixing it with the
+  /// backend voice produced two overlapping female voices. If the backend
+  /// returns no audio we stay silent rather than switch to a second voice.
   Future<void> _speakSentencesWeb(String text, int gen, double speed) async {
-    final sentences = _splitSentences(text);
-    if (sentences.isEmpty) return;
-
-    // Kick off the first sentence's audio immediately.
-    Future<Uint8List?> pending =
-        _apiService.fetchTts(sentences.first, speed: speed);
-
-    for (int i = 0; i < sentences.length; i++) {
-      if (gen != _speakGen) return;
-      Uint8List? bytes;
-      try {
-        bytes = await pending;
-      } catch (_) {
-        bytes = null;
-      }
-
-      // Start fetching the next sentence while this one plays (no gap).
-      if (i + 1 < sentences.length) {
-        pending = _apiService.fetchTts(sentences[i + 1], speed: speed);
-      }
-
-      if (gen != _speakGen) return;
-
-      if (bytes != null && bytes.isNotEmpty) {
-        await _playBytesAwait(bytes, sentences[i], gen);
-      } else {
-        // Backend gave no audio for this sentence — fall back to flutter_tts.
-        if (!_ttsConfigured) await _initTts();
-        await _flutterTts.setLanguage('de-DE');
-        await _flutterTts.speak(sentences[i]).timeout(
-              _speakSafetyTimeout(sentences[i]),
-              onTimeout: () {},
-            );
-      }
+    Uint8List? bytes;
+    try {
+      bytes = await _apiService.fetchTts(text, speed: speed);
+    } catch (e) {
+      debugPrint('fetchTts error: $e');
+      bytes = null;
     }
+    if (gen != _speakGen) return;
+    if (bytes == null || bytes.isEmpty) {
+      debugPrint('No backend audio; staying silent on web (no browser fallback).');
+      return;
+    }
+    await _playBytesAwait(bytes, text, gen);
   }
 
   /// Plays raw audio [bytes] and resolves when playback finishes (or a safety
@@ -321,20 +268,16 @@ class VoiceService extends ChangeNotifier {
     }
   }
 
-  /// Native (iOS/Android) path: speak sentence by sentence with the on-device
-  /// voice. flutter_tts already starts quickly, so this mainly keeps behaviour
-  /// consistent and cancellable.
+  /// Native (iOS/Android): speak the whole reply with the on-device voice
+  /// (iOS = Siri engine).
   Future<void> _speakSentencesNative(String text, int gen) async {
-    final sentences = _splitSentences(text);
+    if (gen != _speakGen) return;
     if (!_ttsConfigured) await _initTts();
     await _flutterTts.setLanguage('de-DE');
-    for (final s in sentences) {
-      if (gen != _speakGen) return;
-      await _flutterTts.speak(s).timeout(
-            _speakSafetyTimeout(s),
-            onTimeout: () {},
-          );
-    }
+    await _flutterTts.speak(text).timeout(
+          _speakSafetyTimeout(text),
+          onTimeout: () {},
+        );
   }
 
   /// Speaks [text] aloud, starting as soon as the first sentence is ready.
