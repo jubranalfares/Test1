@@ -42,7 +42,7 @@ services:
       - OLLAMA_TIMEOUT=${OLLAMA_TIMEOUT:-20}
       - WHISPER_MODEL=${WHISPER_MODEL:-base}
       - TTS_VOICE=${TTS_VOICE:-de-DE-SeraphinaMultilingualNeural}
-      - TTS_RATE=${TTS_RATE:-+0%}
+      - TTS_RATE=${TTS_RATE:-+15%}
     volumes:
       - ./models:/app/models
       - whisper-cache:/root/.cache/huggingface

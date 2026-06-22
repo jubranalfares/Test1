@@ -327,7 +327,8 @@ async def voice_stt(audio: UploadFile = File(...)):
 # SeraphinaMultilingual is Edge-TTS's most natural-sounding German voice.
 # Override via TTS_VOICE in .env (e.g. de-DE-KatjaNeural, de-DE-ConradNeural).
 TTS_VOICE = os.getenv("TTS_VOICE", "de-DE-SeraphinaMultilingualNeural")
-TTS_RATE = os.getenv("TTS_RATE", "+0%")
+# Slightly faster than natural for a snappier, more lively delivery.
+TTS_RATE = os.getenv("TTS_RATE", "+15%")
 
 
 @app.post("/voice/tts")
