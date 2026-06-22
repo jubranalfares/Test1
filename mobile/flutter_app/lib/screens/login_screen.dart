@@ -8,10 +8,12 @@ import '../theme/app_theme.dart';
 String _defaultServerUrl() {
   if (kIsWeb) {
     try {
-      final host = Uri.base.host;
-      if (host.isNotEmpty && host != 'localhost' && host != '127.0.0.1') {
-        return 'http://$host:8080';
-      }
+      // API is served from the same origin via nginx — no port needed
+      final uri = Uri.base;
+      final port = (uri.hasPort && uri.port != 80 && uri.port != 443)
+          ? ':${uri.port}'
+          : '';
+      return '${uri.scheme}://${uri.host}$port';
     } catch (_) {}
   }
   return 'http://localhost:8080';

@@ -8,6 +8,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
+import 'web_speech_stub.dart' if (dart.library.html) 'web_speech_html.dart';
 
 class VoiceService extends ChangeNotifier {
   final ApiService _apiService;
@@ -42,8 +43,7 @@ class VoiceService extends ChangeNotifier {
   Future<void> _initTts() async {
     try {
       await _flutterTts.setLanguage('de-DE');
-      // A touch faster than the default for a livelier, less sleepy delivery.
-      await _flutterTts.setSpeechRate(0.58);
+      await _flutterTts.setSpeechRate(0.5);
       await _flutterTts.setPitch(1.0);
       await _flutterTts.setVolume(1.0);
 
@@ -222,114 +222,127 @@ class VoiceService extends ChangeNotifier {
     return Duration(milliseconds: ms < floor ? floor : ms);
   }
 
-  // Bumped whenever speech (re)starts or is stopped, so an in-flight sentence
-  // pipeline can detect it has been superseded/cancelled and bail out.
-  int _speakGen = 0;
-
-  /// Web (Safari): fetch the WHOLE reply as ONE neural-audio clip and play it
-  /// once. Single-voice on purpose — the browser's own speech synthesis (a
-  /// DIFFERENT voice) is NEVER used as a fallback, because mixing it with the
-  /// backend voice produced two overlapping female voices. If the backend
-  /// returns no audio we stay silent rather than switch to a second voice.
-  Future<void> _speakSentencesWeb(String text, int gen, double speed) async {
+  /// Tries to play the backend's natural neural voice for [clean].
+  /// Returns true if playback was started (and, when [awaitCompletion],
+  /// finished/timed out); false if the backend returned no audio so the
+  /// caller should fall back to flutter_tts.
+  Future<bool> _playBackendTts(String clean, {required bool awaitCompletion}) async {
     Uint8List? bytes;
     try {
-      bytes = await _apiService.fetchTts(text, speed: speed);
+      bytes = await _apiService.fetchTts(clean);
     } catch (e) {
       debugPrint('fetchTts error: $e');
       bytes = null;
     }
-    if (gen != _speakGen) return;
-    if (bytes == null || bytes.isEmpty) {
-      debugPrint('No backend audio; staying silent on web (no browser fallback).');
-      return;
-    }
-    await _playBytesAwait(bytes, text, gen);
-  }
+    if (bytes == null || bytes.isEmpty) return false;
 
-  /// Plays raw audio [bytes] and resolves when playback finishes (or a safety
-  /// timeout fires), unless superseded.
-  Future<void> _playBytesAwait(Uint8List bytes, String forTiming, int gen) async {
-    final completer = Completer<void>();
-    late final StreamSubscription<void> sub;
-    sub = _player.onPlayerComplete.listen((_) {
-      if (!completer.isCompleted) completer.complete();
-    });
     try {
-      await _player.play(BytesSource(bytes));
-      await completer.future.timeout(
-        _speakSafetyTimeout(forTiming),
-        onTimeout: () {},
-      );
+      if (awaitCompletion) {
+        final completer = Completer<void>();
+        late final StreamSubscription<void> sub;
+        sub = _player.onPlayerComplete.listen((_) {
+          if (!completer.isCompleted) completer.complete();
+        });
+        try {
+          await _player.play(BytesSource(bytes));
+          // Wait for actual completion or a safety timeout so the live
+          // conversation loop can never stall.
+          await completer.future.timeout(
+            _speakSafetyTimeout(clean),
+            onTimeout: () {},
+          );
+        } finally {
+          await sub.cancel();
+        }
+      } else {
+        await _player.play(BytesSource(bytes));
+      }
+      return true;
     } catch (e) {
-      debugPrint('play bytes error: $e');
-    } finally {
-      await sub.cancel();
+      debugPrint('Backend TTS playback error: $e');
+      // Playback failed even though we had bytes — fall back to flutter_tts.
+      return false;
     }
   }
 
-  /// Native (iOS/Android): speak the whole reply with the on-device voice
-  /// (iOS = Siri engine).
-  Future<void> _speakSentencesNative(String text, int gen) async {
-    if (gen != _speakGen) return;
-    if (!_ttsConfigured) await _initTts();
-    await _flutterTts.setLanguage('de-DE');
-    await _flutterTts.speak(text).timeout(
-          _speakSafetyTimeout(text),
-          onTimeout: () {},
-        );
-  }
-
-  /// Speaks [text] aloud, starting as soon as the first sentence is ready.
-  /// Fire-and-forget: the chat screen doesn't need to await the whole reply.
-  /// Silent when TTS is muted.
+  /// Speaks [text] aloud.
+  /// On web: tries backend MP3 audio via <audio> element first (most iOS-compatible),
+  /// then falls back to browser speechSynthesis.
+  /// On native: uses flutter_tts.
   Future<void> speakText(String text) async {
     if (!_ttsEnabled) return;
     final clean = text.trim();
     if (clean.isEmpty) return;
 
-    await stopSpeaking();
-    final gen = _speakGen;
-    // Intentionally not awaited: let it stream in the background.
-    if (kIsWeb) {
-      _speakSentencesWeb(clean, gen, 1.0);
-    } else {
-      _speakSentencesNative(clean, gen);
+    try {
+      await stopSpeaking();
+      if (kIsWeb) {
+        // ONE voice only: play the backend neural clip via the <audio>
+        // element. Never fall back to the browser's speechSynthesis — that's
+        // a different voice and overlapping the two produced the "two female
+        // voices" bug. If there's no audio, stay silent.
+        final bytes = await _apiService.fetchTts(clean);
+        if (bytes != null && bytes.isNotEmpty) {
+          await webPlayAudioBytes(bytes, awaitCompletion: false);
+        } else {
+          debugPrint('No backend audio; staying silent (no browser voice).');
+        }
+        return;
+      }
+      if (!_ttsConfigured) await _initTts();
+      await _flutterTts.setLanguage('de-DE');
+      await _flutterTts.speak(clean);
+    } catch (e) {
+      debugPrint('speakText error: $e');
     }
   }
 
   /// Primary speak path for Jarvis replies.
   Future<void> speak(String text) => speakText(text);
 
-  /// Speaks [text] and only completes once the whole reply has finished
-  /// playing (or been superseded). The live conversation loop uses this so it
-  /// can start listening again right after Jarvis stops talking. Still starts
-  /// talking after the first sentence. Silent when TTS is muted.
+  /// Speaks [text] and waits until playback finishes (or a safety timeout
+  /// fires). The live conversation loop calls this so it can start listening
+  /// again the moment Jarvis stops talking. Silent when TTS is muted.
   Future<void> speakAndWait(String text) async {
     if (!_ttsEnabled) return;
     final clean = text.trim();
     if (clean.isEmpty) return;
 
-    await stopSpeaking();
-    final gen = _speakGen;
     try {
+      await stopSpeaking();
+
       if (kIsWeb) {
-        await _speakSentencesWeb(clean, gen, 1.0);
-      } else {
-        await _speakSentencesNative(clean, gen);
+        // ONE voice only (see speakText) — no browser-synthesis fallback.
+        final bytes = await _apiService.fetchTts(clean);
+        if (bytes != null && bytes.isNotEmpty) {
+          await webPlayAudioBytes(bytes, awaitCompletion: true);
+        } else {
+          debugPrint('No backend audio; staying silent (no browser voice).');
+        }
+        return;
       }
+      if (!_ttsConfigured) await _initTts();
+      await _flutterTts.setLanguage('de-DE');
+      // awaitSpeakCompletion(true) makes speak() resolve when done.
+      // The safety timeout prevents a stall if the completion never fires.
+      await _flutterTts.speak(clean).timeout(
+            _speakSafetyTimeout(clean),
+            onTimeout: () {},
+          );
     } catch (e) {
       debugPrint('speakAndWait error: $e');
     }
   }
 
   Future<void> stopSpeaking() async {
-    // Supersede any in-flight sentence pipeline so it stops queuing audio.
-    _speakGen++;
-    try {
-      await _flutterTts.stop();
-    } catch (e) {
-      debugPrint('Stop TTS error: $e');
+    if (kIsWeb) {
+      webSpeechCancel();
+    } else {
+      try {
+        await _flutterTts.stop();
+      } catch (e) {
+        debugPrint('Stop TTS error: $e');
+      }
     }
     try {
       await _player.stop();
