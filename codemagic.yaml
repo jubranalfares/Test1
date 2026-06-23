@@ -16,8 +16,18 @@ workflows:
       - name: CocoaPods install
         script: cd ios && pod install --repo-update
 
+      - name: Flutter analyze (Dart-Fehler prüfen)
+        script: flutter analyze --no-fatal-infos 2>&1 || true
+
       - name: Build iOS release (unsigned)
-        script: flutter build ios --release --no-codesign
+        script: |
+          flutter build ios --release --no-codesign --verbose 2>&1 | tee /tmp/ios_build.log
+          BUILD_EXIT=${PIPESTATUS[0]}
+          echo ""
+          echo "====== FEHLER-ZUSAMMENFASSUNG ======"
+          grep -E "error:|Error:|FAILED|fatal error|warning:.*error" /tmp/ios_build.log | tail -40 || true
+          echo "====================================="
+          exit $BUILD_EXIT
 
       - name: Package as IPA for Sideloadly
         script: |
@@ -29,6 +39,7 @@ workflows:
 
     artifacts:
       - mobile/flutter_app/build/ios/iphoneos/Jarvis-unsigned.ipa
+      - /tmp/ios_build.log
 
     publishing:
       email:
