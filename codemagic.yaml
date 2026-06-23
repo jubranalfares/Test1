@@ -27,11 +27,10 @@ workflows:
           cd build/ios/iphoneos
           mkdir -p Payload
           cp -r Runner.app Payload/
-          zip -r Jarvis-unsigned.ipa Payload/
-          rm -rf Payload
+          zip -r /tmp/Jarvis-unsigned.ipa Payload/
 
     artifacts:
-      - mobile/flutter_app/build/ios/iphoneos/Jarvis-unsigned.ipa
+      - /tmp/Jarvis-unsigned.ipa
 
     publishing:
       email:
