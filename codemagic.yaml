@@ -16,27 +16,29 @@ workflows:
       - name: CocoaPods install
         script: cd ios && pod install --repo-update
 
-      - name: Build iOS release (unsigned)
+      - name: Build iOS (Fehler werden als Artifact gespeichert)
         script: |
-          set -o pipefail
-          flutter build ios --release --no-codesign 2>&1 | tee /tmp/build.log; RESULT=${PIPESTATUS[0]}
-          if [ $RESULT -ne 0 ]; then
-            echo ""
-            echo "############ FEHLER ############"
-            grep -E "error:|Error \[|Build FAILED|fatal error" /tmp/build.log | grep -v "^note:" | tail -30
-            echo "################################"
-            echo "Letzten 30 Zeilen:"
-            tail -30 /tmp/build.log
-          fi
-          exit $RESULT
+          flutter build ios --release --no-codesign 2>&1 | tee /tmp/build.log
+          echo $? > /tmp/build_status.txt
+          exit 0
 
-      - name: Package as IPA for Sideloadly
+      - name: Ergebnis pruefen und IPA verpacken
         script: |
-          cd build/ios/iphoneos
-          mkdir -p Payload
-          cp -r Runner.app Payload/
-          zip -r Jarvis-unsigned.ipa Payload/
-          rm -rf Payload
+          STATUS=$(cat /tmp/build_status.txt)
+          if [ "$STATUS" = "0" ]; then
+            echo "BUILD ERFOLGREICH"
+            cd build/ios/iphoneos
+            mkdir -p Payload && cp -r Runner.app Payload/
+            zip -r Jarvis-unsigned.ipa Payload/ && rm -rf Payload
+          else
+            echo "BUILD FEHLGESCHLAGEN - Echte Fehler:"
+            echo "======================================="
+            grep -E "error:|Error \[" /tmp/build.log | grep -v "^note:" | head -30
+            echo "======================================="
+            echo "Letzte 20 Zeilen des Logs:"
+            tail -20 /tmp/build.log
+            exit 1
+          fi
 
     artifacts:
       - mobile/flutter_app/build/ios/iphoneos/Jarvis-unsigned.ipa
