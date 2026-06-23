@@ -35,8 +35,16 @@ workflows:
       - name: Flutter clean
         script: flutter clean && flutter pub get
 
+      - name: Diagnose iOS project state
+        script: |
+          echo "=== Podfile ===" && cat ios/Podfile
+          echo "=== Flutter doctor ===" && flutter doctor -v
+          echo "=== Installed pods ===" && ls ios/Pods/ 2>/dev/null | head -20 || echo "No Pods folder"
+
       - name: Build iOS release (unsigned)
-        script: flutter build ios --release --no-codesign
+        script: |
+          flutter build ios --release --no-codesign --verbose 2>&1 | tail -200
+          exit ${PIPESTATUS[0]}
 
       - name: Package as IPA for Sideloadly
         script: |
