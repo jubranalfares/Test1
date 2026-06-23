@@ -1,0 +1,42 @@
+workflows:
+  ios-unsigned:
+    name: iOS Unsigned IPA (Sideloadly)
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+
+    working_directory: mobile/flutter_app
+
+    scripts:
+      - name: Flutter pub get
+        script: flutter pub get
+
+      - name: Generate missing iOS project files
+        script: flutter create --org com.jubran --platforms ios .
+
+      - name: CocoaPods install
+        script: cd ios && pod install --repo-update
+
+      - name: Build iOS release (no signing)
+        script: flutter build ios --release --no-codesign
+
+      - name: Package as IPA for Sideloadly
+        script: |
+          cd build/ios/iphoneos
+          mkdir -p Payload
+          cp -r Runner.app Payload/
+          zip -r Jarvis-unsigned.ipa Payload/
+          rm -rf Payload
+
+    artifacts:
+      - mobile/flutter_app/build/ios/iphoneos/Jarvis-unsigned.ipa
+
+    publishing:
+      email:
+        recipients:
+          - jubranalfares5@gmail.com
+        notify:
+          success: true
+          failure: true

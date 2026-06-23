@@ -243,8 +243,7 @@ class LiveConversationService extends ChangeNotifier {
   Future<void> _handleUserPhrase(String phrase) async {
     _partialText = '';
 
-    // Build conversation history from prior turns (BEFORE adding the current
-    // user phrase) so the backend remembers the context. Keep the last 12.
+    // Build conversation history from prior turns. Keep the last 12.
     final priorHistory = _transcript
         .map((t) => {
               'role': t.isUser ? 'user' : 'assistant',
@@ -277,23 +276,65 @@ class LiveConversationService extends ChangeNotifier {
     _addTurn(replyText, isUser: false);
     _setState(LiveConversationState.speaking);
 
-    // Speak the reply. Even if speaking throws, the loop must continue to
-    // listening (speakAndWait already has a safety timeout so it can't hang).
-    try {
-      await _voiceService.speakAndWait(replyText);
-    } catch (e) {
-      debugPrint('Live speak error: $e');
+    // In hands-free mode: listen for barge-in while Jarvis is speaking.
+    // If the user starts talking, cut Jarvis off immediately.
+    if (_mode == LiveMode.handsFree && _speechAvailable) {
+      bool bargedIn = false;
+      final bargeInCompleter = Completer<void>();
+
+      await _speech.listen(
+        localeId: _localeId,
+        listenFor: const Duration(seconds: 60),
+        pauseFor: const Duration(seconds: 2),
+        listenOptions: stt.SpeechListenOptions(
+          partialResults: true,
+          cancelOnError: true,
+          listenMode: stt.ListenMode.dictation,
+        ),
+        onResult: (result) {
+          if (result.recognizedWords.trim().isNotEmpty && !bargedIn) {
+            bargedIn = true;
+            _voiceService.stopSpeaking();
+            if (!bargeInCompleter.isCompleted) bargeInCompleter.complete();
+          }
+        },
+      );
+
+      // Speak while also monitoring for barge-in.
+      await Future.any([
+        _voiceService.speakAndWait(replyText),
+        bargeInCompleter.future,
+      ]);
+
+      try {
+        await _speech.stop();
+      } catch (_) {}
+
+      if (_stopped) return;
+
+      if (bargedIn) {
+        // User interrupted — jump straight back into listening.
+        _partialText = '';
+        _resultHandled = false;
+        _setState(LiveConversationState.listening);
+        await _listenLoop();
+        return;
+      }
+    } else {
+      try {
+        await _voiceService.speakAndWait(replyText);
+      } catch (e) {
+        debugPrint('Live speak error: $e');
+      }
     }
 
     if (_stopped) return;
 
-    // Small delay to let the speaker audio fully settle before the mic could
-    // reopen (extra protection against the mic hearing Jarvis = echo).
-    await Future<void>.delayed(const Duration(milliseconds: 500));
+    // Small gap so the speaker fully settles before the mic reopens.
+    await Future<void>.delayed(const Duration(milliseconds: 400));
 
     if (_stopped) return;
 
-    // Continue: hands-free listens again automatically; push-to-talk waits.
     _afterTurn();
   }
 

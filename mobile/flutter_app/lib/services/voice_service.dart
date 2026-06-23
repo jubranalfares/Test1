@@ -266,9 +266,8 @@ class VoiceService extends ChangeNotifier {
   }
 
   /// Speaks [text] aloud.
-  /// On web: tries backend MP3 audio via <audio> element first (most iOS-compatible),
-  /// then falls back to browser speechSynthesis.
-  /// On native: uses flutter_tts.
+  /// On web: backend MP3 via <audio> element (iOS Safari compatible).
+  /// On native: backend Edge-TTS neural voice via audioplayers, falls back to flutter_tts.
   Future<void> speakText(String text) async {
     if (!_ttsEnabled) return;
     final clean = text.trim();
@@ -277,18 +276,17 @@ class VoiceService extends ChangeNotifier {
     try {
       await stopSpeaking();
       if (kIsWeb) {
-        // ONE voice only: play the backend neural clip via the <audio>
-        // element. Never fall back to the browser's speechSynthesis — that's
-        // a different voice and overlapping the two produced the "two female
-        // voices" bug. If there's no audio, stay silent.
         final bytes = await _apiService.fetchTts(clean);
         if (bytes != null && bytes.isNotEmpty) {
           await webPlayAudioBytes(bytes, awaitCompletion: false);
         } else {
-          debugPrint('No backend audio; staying silent (no browser voice).');
+          debugPrint('No backend audio; staying silent.');
         }
         return;
       }
+      // Native: try backend neural voice first, fall back to on-device TTS.
+      final played = await _playBackendTts(clean, awaitCompletion: false);
+      if (played) return;
       if (!_ttsConfigured) await _initTts();
       await _flutterTts.setLanguage('de-DE');
       await _flutterTts.speak(clean);
@@ -312,19 +310,19 @@ class VoiceService extends ChangeNotifier {
       await stopSpeaking();
 
       if (kIsWeb) {
-        // ONE voice only (see speakText) — no browser-synthesis fallback.
         final bytes = await _apiService.fetchTts(clean);
         if (bytes != null && bytes.isNotEmpty) {
           await webPlayAudioBytes(bytes, awaitCompletion: true);
         } else {
-          debugPrint('No backend audio; staying silent (no browser voice).');
+          debugPrint('No backend audio; staying silent.');
         }
         return;
       }
+      // Native: try backend neural voice first (blocking), fall back to flutter_tts.
+      final played = await _playBackendTts(clean, awaitCompletion: true);
+      if (played) return;
       if (!_ttsConfigured) await _initTts();
       await _flutterTts.setLanguage('de-DE');
-      // awaitSpeakCompletion(true) makes speak() resolve when done.
-      // The safety timeout prevents a stall if the completion never fires.
       await _flutterTts.speak(clean).timeout(
             _speakSafetyTimeout(clean),
             onTimeout: () {},
