@@ -16,8 +16,20 @@ workflows:
       - name: CocoaPods install
         script: cd ios && pod install --repo-update
 
-      - name: Build iOS release (unsigned)
-        script: flutter build ios --release --no-codesign
+      - name: Build iOS release (unsigned) + echte Fehlerausgabe
+        script: |
+          flutter build ios --release --no-codesign --verbose 2>&1 | tee /tmp/build.log
+          BUILD_EXIT=${PIPESTATUS[0]}
+          if [ $BUILD_EXIT -ne 0 ]; then
+            echo ""
+            echo "========== ECHTER XCODE FEHLER =========="
+            grep -E "error:|Error |FAILED|fatal|linker|ld:" /tmp/build.log \
+              | grep -v "note:\|#warning\|^warning" | head -30
+            echo "========================================="
+            echo "--- Letzte 50 Zeilen ---"
+            tail -50 /tmp/build.log
+          fi
+          exit $BUILD_EXIT
 
       - name: Package as IPA for Sideloadly
         script: |
@@ -29,6 +41,7 @@ workflows:
 
     artifacts:
       - mobile/flutter_app/build/ios/iphoneos/Jarvis-unsigned.ipa
+      - /tmp/build.log
 
     publishing:
       email:
