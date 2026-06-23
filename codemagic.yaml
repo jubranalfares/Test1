@@ -16,33 +16,22 @@ workflows:
       - name: CocoaPods install
         script: cd ios && pod install --repo-update
 
-      - name: Build iOS (Fehler werden als Artifact gespeichert)
-        script: |
-          flutter build ios --release --no-codesign 2>&1 | tee /tmp/build.log
-          echo $? > /tmp/build_status.txt
-          exit 0
+      - name: Flutter clean
+        script: flutter clean && flutter pub get
 
-      - name: Ergebnis pruefen und IPA verpacken
+      - name: Build iOS release (unsigned)
+        script: flutter build ios --release --no-codesign
+
+      - name: Package as IPA for Sideloadly
         script: |
-          STATUS=$(cat /tmp/build_status.txt)
-          if [ "$STATUS" = "0" ]; then
-            echo "BUILD ERFOLGREICH"
-            cd build/ios/iphoneos
-            mkdir -p Payload && cp -r Runner.app Payload/
-            zip -r Jarvis-unsigned.ipa Payload/ && rm -rf Payload
-          else
-            echo "BUILD FEHLGESCHLAGEN - Echte Fehler:"
-            echo "======================================="
-            grep -E "error:|Error \[" /tmp/build.log | grep -v "^note:" | head -30
-            echo "======================================="
-            echo "Letzte 20 Zeilen des Logs:"
-            tail -20 /tmp/build.log
-            exit 1
-          fi
+          cd build/ios/iphoneos
+          mkdir -p Payload
+          cp -r Runner.app Payload/
+          zip -r Jarvis-unsigned.ipa Payload/
+          rm -rf Payload
 
     artifacts:
       - mobile/flutter_app/build/ios/iphoneos/Jarvis-unsigned.ipa
-      - /tmp/build.log
 
     publishing:
       email:
