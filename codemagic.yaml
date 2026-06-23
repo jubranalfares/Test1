@@ -13,38 +13,11 @@ workflows:
       - name: Flutter pub get
         script: flutter pub get
 
-      - name: Generate missing iOS project files
-        script: flutter create --org com.jubran --platforms ios .
-
-      - name: Set iOS minimum deployment target to 14.0
-        script: |
-          # The 'record' plugin requires iOS 14+.
-          # Update project-level target in Podfile so pods inherit it.
-          sed -i '' "s/platform :ios, '12.0'/platform :ios, '14.0'/" ios/Podfile || true
-          sed -i '' "s/platform :ios, '11.0'/platform :ios, '14.0'/" ios/Podfile || true
-          # Also patch the Xcode project plist
-          /usr/libexec/PlistBuddy -c "Set :IPHONEOS_DEPLOYMENT_TARGET 14.0" \
-            "ios/Runner.xcodeproj/project.pbxproj" 2>/dev/null || true
-          # Brute-force: replace every occurrence in the pbxproj
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*/IPHONEOS_DEPLOYMENT_TARGET = 14.0/g' \
-            ios/Runner.xcodeproj/project.pbxproj || true
-
       - name: CocoaPods install
         script: cd ios && pod install --repo-update
 
-      - name: Flutter clean
-        script: flutter clean && flutter pub get
-
-      - name: Diagnose iOS project state
-        script: |
-          echo "=== Podfile ===" && cat ios/Podfile
-          echo "=== Flutter doctor ===" && flutter doctor -v
-          echo "=== Installed pods ===" && ls ios/Pods/ 2>/dev/null | head -20 || echo "No Pods folder"
-
       - name: Build iOS release (unsigned)
-        script: |
-          flutter build ios --release --no-codesign --verbose 2>&1 | tail -200
-          exit ${PIPESTATUS[0]}
+        script: flutter build ios --release --no-codesign
 
       - name: Package as IPA for Sideloadly
         script: |
